@@ -12,7 +12,8 @@ import {
 import { useState, useEffect } from "react";
 import { useEstimatorStore } from "@/features/estimator/store/estimatorStore";
 import { useMaterialStore } from "@/features/materials/store/materialStore";
-import { useSettingsStore } from "@/features/settings/store/settingsStore"; // ✅ NEW
+import { useSettingsStore } from "@/features/settings/store/settingsStore";
+import { calculateAssemblyValues } from "@/utils/calcAssembly";
 
 interface AddAssemblyModalProps {
   isOpen: boolean;
@@ -21,8 +22,8 @@ interface AddAssemblyModalProps {
 
 export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalProps) {
   const { addAssembly, recalcTotals } = useEstimatorStore();
-  const { materials } = useMaterialStore();
-  const { settings } = useSettingsStore(); // ✅ access global settings
+  const settings = useSettingsStore((s) => s.settings);
+  const materials = useMaterialStore((s) => s.materials);
 
   const [name, setName] = useState("");
   const [type, setType] = useState("Wall");
@@ -58,36 +59,31 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
   }, [area, height, pitch, thickness, margin, laborRate, type, foamType, materials, settings.mobilizationFee]);
 
   const handleSave = () => {
-    if (!name) return alert("Assembly name required.");
+  if (!name) return alert("Assembly name required.");
 
-    const selectedMaterial = materials.find((m) => m.foamType === foamType);
-    const costPerBdFt = selectedMaterial?.costPerBdFt ?? 0.05;
-    const materialCost = boardFeet * costPerBdFt;
-    const laborCost = boardFeet * parseFloat(laborRate);
-    const subtotal = materialCost + laborCost + settings.mobilizationFee;
-    const marginValue = subtotal * (parseFloat(margin) / 100);
-    const total = subtotal + marginValue;
-
-    addAssembly({
-      id: crypto.randomUUID(),
-      name,
-      type,
-      foamType,
-      thickness: parseFloat(thickness),
-      area: parseFloat(area) || 0,
-      height: parseFloat(height) || 0,
-      pitch: parseFloat(pitch) || 1,
-      boardFeet,
-      materialCost,
-      laborCost,
-      totalCost: total,
-      margin: parseFloat(margin),
-    });
-
-    recalcTotals();
-    onClose();
-    resetForm();
+  const formData = {
+    id: crypto.randomUUID(),
+    name,
+    type,
+    foamType,
+    thickness: parseFloat(thickness),
+    area: parseFloat(area) || 0,
+    height: parseFloat(height) || 0,
+    pitch: parseFloat(pitch) || 1,
+    margin: parseFloat(margin),
+    boardFeet: 0,
+    materialCost: 0,
+    laborCost: 0,
+    totalCost: 0,
   };
+
+  const calculated = calculateAssemblyValues(formData, settings, materials);
+
+  addAssembly(calculated);
+  recalcTotals();
+  onClose();
+  resetForm();
+};
 
   const resetForm = () => {
     setName("");

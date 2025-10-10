@@ -1,69 +1,66 @@
-// src/utils/calcAssembly.ts
 import { Assembly } from "@/features/estimator/store/estimatorStore";
+import { Settings } from "@/features/settings/store/settingsStore";
+import { Material } from "@/features/materials/store/materialStore";
 
-export function calculateAssemblyValues(a: Assembly) {
+/**
+ * Calculates assembly costs using current settings and materials.
+ */
+export function calculateAssemblyValues(
+  asm: Assembly,
+  settings: Settings,
+  materials: Material[]
+): Assembly {
   let boardFeet = 0;
-  let materialCost = 0;
-  let laborCost = 0;
 
-  // Basic foam yield values per set (example numbers)
-  const yields = {
-    open: 16000, // bdft per set
-    closed: 4000,
-  };
-
-  // Cost per set
-  const costs = {
-    open: 700, // dollars per set
-    closed: 1200,
-  };
-
-  // Labor rate per board foot (simple model)
-  const laborRate = 0.25; // $ per bdft
-
-  // --- Board feet calc by type ---
-  switch (a.type) {
+  // --- Board Feet ---
+  switch (asm.type) {
     case "Wall":
-      if (a.area && a.height && a.thickness) {
-        boardFeet = a.area * a.height * (a.thickness / 12);
+      if (asm.area && asm.height && asm.thickness) {
+        boardFeet = asm.area * asm.height * (asm.thickness / 12);
       }
       break;
     case "Attic":
-      if (a.area && a.pitch && a.thickness) {
-        boardFeet = a.area * a.pitch * (a.thickness / 12);
-      }
-      break;
-    case "Roof":
-    case "Flat Roof":
-      if (a.area && a.thickness) {
-        boardFeet = a.area * (a.thickness / 12);
-      }
-      break;
-    case "Crawl":
-      if (a.area && a.thickness) {
-        boardFeet = a.area * (a.thickness / 12);
+      if (asm.area && asm.pitch && asm.thickness) {
+        boardFeet = asm.area * asm.pitch * (asm.thickness / 12);
       }
       break;
     default:
-      boardFeet = 0;
+      if (asm.area && asm.thickness) {
+        boardFeet = asm.area * (asm.thickness / 12);
+      }
+      break;
   }
 
-  // --- Material cost ---
-  const foamKey = a.foamType.toLowerCase().includes("closed")
-    ? "closed"
-    : "open";
-  const costPerBdft = costs[foamKey] / yields[foamKey];
-  materialCost = boardFeet * costPerBdft;
+  // --- Material cost lookup ---
+  const matchedMaterial = materials.find(
+    (m) =>
+      m.foamType.toLowerCase() === asm.foamType.toLowerCase() ||
+      m.name.toLowerCase().includes(asm.foamType.toLowerCase())
+  );
+
+  const costPerBdft =
+    matchedMaterial?.costPerBdFt ??
+    (asm.foamType.toLowerCase().includes("closed") ? 0.26 : 0.067);
+
+  const materialCost = boardFeet * costPerBdft;
 
   // --- Labor cost ---
-  laborCost = boardFeet * laborRate;
+  const laborCost = boardFeet * settings.laborRate;
 
-  // --- Total cost w/ margin ---
-  const subtotal = materialCost + laborCost;
-  const totalCost = subtotal * (1 + a.margin / 100);
+  // --- Subtotal + mobilization fee ---
+  let subtotal = materialCost + laborCost + settings.mobilizationFee;
+
+  // --- Optional fuel surcharge ---
+  if (settings.includeFuelSurcharge) {
+    subtotal *= 1.05; // 5% bump if enabled
+  }
+
+  // --- Margin ---
+  const marginValue = subtotal * (asm.margin / 100);
+  const totalCost = subtotal + marginValue;
 
   return {
-    ...a,
+    ...asm,
     boardFeet: Math.round(boardFeet),
     materialCost: Math.round(materialCost),
     laborCost: Math.round(laborCost),

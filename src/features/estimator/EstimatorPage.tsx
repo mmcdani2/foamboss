@@ -25,8 +25,6 @@ export default function EstimatorPage() {
     const steps = ["Estimate Setup", "Add Assemblies", "Summary"];
     const [currentStep, setCurrentStep] = useState(0);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const { settings } = useSettingsStore();
-    const { materials } = useMaterialStore();
 
     const { estimate, setEstimate, assemblies, removeAssembly } = useEstimatorStore();
 
@@ -169,17 +167,14 @@ export default function EstimatorPage() {
                                                             </Chip>
                                                         </CardHeader>
                                                         <CardBody className="text-sm text-default-600">
-                                                            <p>
-                                                                <strong>Foam:</strong> {asm.foamType}
-                                                            </p>
-                                                            <p>
-                                                                <strong>Board Feet:</strong>{" "}
-                                                                {asm.boardFeet.toLocaleString()}
-                                                            </p>
-                                                            <p>
-                                                                <strong>Total Cost:</strong> $
-                                                                {asm.totalCost.toFixed(2)}
-                                                            </p>
+                                                            <p><strong>Foam:</strong> {asm.foamType}</p>
+                                                            <p><strong>Thickness:</strong> {asm.thickness}"</p>
+                                                            <p><strong>Board Feet:</strong> {asm.boardFeet.toLocaleString()}</p>
+                                                            <p><strong>Material Cost:</strong> ${asm.materialCost.toFixed(2)}</p>
+                                                            <p><strong>Labor Cost:</strong> ${asm.laborCost.toFixed(2)}</p>
+                                                            <p><strong>Margin:</strong> {asm.margin}%</p>
+                                                            <Divider className="my-2" />
+                                                            <p><strong>Total Cost:</strong> <span className="text-success font-semibold">${asm.totalCost.toFixed(2)}</span></p>
                                                             <Divider className="my-2" />
                                                             <Button
                                                                 size="sm"
