@@ -1,14 +1,19 @@
+// src/features/settings/store/settingsStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useEffect, useState } from "react";
 
-// --- TYPES ---
+// ─── TYPES ────────────────────────────────────────────────────────────
+export type PayType = "Hourly" | "Percentage" | "Salary" | "None";
+
 export interface UserSetting {
   id: string;
   name: string;
   role: string;
   status: "Active" | "Inactive";
+  payType: PayType;
   hourlyRate?: number;
+  percentageRate?: number;
 }
 
 export interface Settings {
@@ -20,21 +25,19 @@ export interface Settings {
   marginPercent: number;
   mobilizationFee: number;
   includeFuelSurcharge: boolean;
-  users: UserSetting[]; // ✅ new
+  users: UserSetting[]; 
 }
 
 export interface SettingsState {
   settings: Settings;
   updateSettings: (data: Partial<Settings>) => void;
-  resetSettings: () => void;
-
-  // ✅ user management actions
   addUser: (user: UserSetting) => void;
-  updateUser: (id: string, updated: Partial<UserSetting>) => void;
+  updateUser: (id: string, data: Partial<UserSetting>) => void;
   removeUser: (id: string) => void;
+  resetSettings: () => void;
 }
 
-// --- MAIN STORE ---
+// ─── STORE ───────────────────────────────────────────────────────────
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
@@ -47,17 +50,42 @@ export const useSettingsStore = create<SettingsState>()(
         marginPercent: 25,
         mobilizationFee: 50,
         includeFuelSurcharge: false,
-        users: [
-          { id: "1", name: "John Thornton", role: "Owner", status: "Active", hourlyRate: 0 },
-          { id: "2", name: "Alex McDaniel", role: "COO", status: "Active", hourlyRate: 65 },
-          { id: "3", name: "Davin Smith", role: "Lead Installer", status: "Inactive", hourlyRate: 30 },
-        ],
+        users: [],
       },
 
       updateSettings: (data) => {
         const updated = { ...get().settings, ...data };
         set({ settings: updated });
         console.log("✅ Settings updated:", updated);
+      },
+
+      addUser: (user) => {
+        set({
+          settings: {
+            ...get().settings,
+            users: [...get().settings.users, user],
+          },
+        });
+      },
+
+      updateUser: (id, data) => {
+        set({
+          settings: {
+            ...get().settings,
+            users: get().settings.users.map((u) =>
+              u.id === id ? { ...u, ...data } : u
+            ),
+          },
+        });
+      },
+
+      removeUser: (id) => {
+        set({
+          settings: {
+            ...get().settings,
+            users: get().settings.users.filter((u) => u.id !== id),
+          },
+        });
       },
 
       resetSettings: () => {
@@ -75,54 +103,27 @@ export const useSettingsStore = create<SettingsState>()(
         set({ settings: defaults });
         console.log("⚙️ Settings reset to defaults");
       },
-
-      // --- USER MANAGEMENT ---
-      addUser: (user) =>
-        set((state) => ({
-          settings: { ...state.settings, users: [...state.settings.users, user] },
-        })),
-
-      updateUser: (id, updated) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            users: state.settings.users.map((u) =>
-              u.id === id ? { ...u, ...updated } : u
-            ),
-          },
-        })),
-
-      removeUser: (id) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            users: state.settings.users.filter((u) => u.id !== id),
-          },
-        })),
     }),
     {
-      name: "foamboss-settings-storage", // LocalStorage key
+      name: "foamboss-settings-storage",
       partialize: (state) => ({ settings: state.settings }),
       skipHydration: false,
-      version: 2, // ✅ bumped version
+      version: 2,
     }
   )
 );
 
-// --- HYDRATION HELPER ---
+// ─── HYDRATION HOOK ─────────────────────────────────────────────────
 export const useHydratedSettings = () => {
   const state = useSettingsStore();
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const unsub = useSettingsStore.persist.onFinishHydration(() => {
-      setHydrated(true);
-    });
-
+    const unsub = useSettingsStore.persist.onFinishHydration(() =>
+      setHydrated(true)
+    );
     if (useSettingsStore.persist.hasHydrated()) setHydrated(true);
-    return () => {
-      unsub?.();
-    };
+    return () => unsub?.();
   }, []);
 
   return { ...state, hydrated };

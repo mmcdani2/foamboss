@@ -13,6 +13,7 @@ import PricingSettings from "./components/Pricingsettings";
 import TemplateSettings from "./components/TemplateSettings";
 import UserSettings from "./components/UserSettings";
 import IntegrationSettings from "./components/IntegrationSettings";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const { settings, updateSettings, hydrated } = useHydratedSettings();
@@ -75,7 +76,9 @@ export default function SettingsPage() {
       includeFuelSurcharge: pricing.fuelSurcharge,
     });
 
-    alert("Settings saved successfully!");
+    toast.success("Settings saved successfully!", {
+    description: "All configuration changes have been updated.",
+  });
   };
 
   // --- UI ---
