@@ -17,14 +17,14 @@ export function calculateAssemblyValues(
   switch (asm.type) {
     case "Wall":
       if (asm.area && asm.height && asm.thickness) {
-        // ✅ convert inches → feet
+        // convert inches → feet
         boardFeet = asm.area * asm.height * asm.thickness;
       }
       break;
 
     case "Attic":
       if (asm.area && asm.pitch && asm.thickness) {
-        boardFeet = asm.area * asm.pitch * asm.thickness;
+        boardFeet = asm.area * asm.pitch * (asm.thickness/12);
       }
       break;
 
@@ -56,7 +56,7 @@ export function calculateAssemblyValues(
   // --- Subtotal + mobilization fee ---
   const mobilizationFee =
     asm.mobilization ?? settings.mobilizationFee ?? 0; // ✅ allow per-job override
-  let subtotal = materialCost + laborCost + mobilizationFee;
+  let subtotal = materialCost + laborCost;
 
   // --- Optional fuel surcharge ---
   if (settings.includeFuelSurcharge) {

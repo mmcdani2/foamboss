@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useSettingsStore } from "@/features/settings/store/settingsStore";
+
 
 export interface Assembly {
   id: string;
@@ -38,8 +40,8 @@ interface EstimatorState {
   recalcTotals: () => void;
   resetEstimate: () => void;
   setEstimate: (data: Partial<Estimate>) => void;
-  saveEstimate: () => void; // ✅ NEW
-  loadEstimate: (id: string) => void; // ✅ NEW
+  saveEstimate: () => void;
+  loadEstimate: (id: string) => void;
 }
 
 export const useEstimatorStore = create<EstimatorState>()(
@@ -68,7 +70,11 @@ export const useEstimatorStore = create<EstimatorState>()(
       recalcTotals: () => {
         const assemblies = get().assemblies;
         const totalBoardFeet = assemblies.reduce((sum, a) => sum + a.boardFeet, 0);
-        const totalCost = assemblies.reduce((sum, a) => sum + a.totalCost, 0);
+        const totalCostWithoutMobilization = assemblies.reduce((sum, a) => sum + a.totalCost, 0);
+
+        const mobilization = useSettingsStore.getState().settings.mobilizationFee || 0;
+        const totalCost = totalCostWithoutMobilization + mobilization;
+
         set({
           estimate: {
             ...get().estimate,
@@ -77,6 +83,7 @@ export const useEstimatorStore = create<EstimatorState>()(
           },
         });
       },
+
 
       resetEstimate: () => {
         set({

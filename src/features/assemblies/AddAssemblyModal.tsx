@@ -13,7 +13,7 @@ import { useState, useEffect } from "react";
 import { useEstimatorStore } from "@/features/estimator/store/estimatorStore";
 import { useMaterialStore } from "@/features/materials/store/materialStore";
 import { useSettingsStore } from "@/features/settings/store/settingsStore";
-import { calculateAssemblyValues } from "@/utils/calcAssembly";
+import { calculateAssemblyValues } from "@/features/estimator/utils/calcAssembly";
 
 interface AddAssemblyModalProps {
   isOpen: boolean;
@@ -25,28 +25,30 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
   const settings = useSettingsStore((s) => s.settings);
   const materials = useMaterialStore((s) => s.materials);
 
-  const [name, setName] = useState("");
+  // 🧱 Local state
+  const [assemblyName, setAssemblyName] = useState("");
   const [type, setType] = useState("Wall");
+  const [selectedMaterial, setSelectedMaterial] = useState(materials[0]?.name ?? "");
   const [foamType, setFoamType] = useState("Open-Cell");
   const [thickness, setThickness] = useState("3");
   const [area, setArea] = useState("");
   const [height, setHeight] = useState("");
   const [pitch, setPitch] = useState("");
-  const [margin, setMargin] = useState(settings.marginPercent.toString()); // ✅ from settings
-  const [laborRate, setLaborRate] = useState(settings.laborRate.toString()); // ✅ from settings
+  const [mobilization, setMobilization] = useState(settings.mobilizationFee.toString());
   const [boardFeet, setBoardFeet] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
-  const [mobilization, setMobilization] = useState(settings.mobilizationFee.toString());
 
-
+  // 🧮 Auto-recalculate totals when inputs change
   useEffect(() => {
     const a = parseFloat(area) || 0;
     const h = parseFloat(height) || 0;
     const p = parseFloat(pitch) || 1;
     const t = parseFloat(thickness) || 0;
-    const m = parseFloat(margin) || 0;
-    const l = parseFloat(laborRate) || 0;
     const mob = parseFloat(mobilization) || 0;
+
+    // Pull admin-defined rates
+    const l = settings.laborRate;
+    const m = settings.marginPercent;
 
     let bf = 0;
     if (type === "Wall" && a && h && t) bf = a * h * t;
@@ -54,9 +56,13 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
     else if (a && t) bf = a * t;
     setBoardFeet(bf);
 
-    // ✅ Always calculate base total — even if no board feet yet
-    const selectedMaterial = materials.find((m) => m.foamType === foamType);
-    const costPerBdFt = selectedMaterial?.costPerBdFt ?? 0.05;
+    if (!selectedMaterial || bf === 0) {
+      setTotalCost(0);
+      return;
+    }
+
+    const mat = materials.find((m) => m.name === selectedMaterial);
+    const costPerBdFt = mat?.costPerBdFt ?? 0.067;
 
     const materialCost = bf * costPerBdFt;
     const laborCost = bf * l;
@@ -68,30 +74,32 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
     height,
     pitch,
     thickness,
-    margin,
-    laborRate,
-    mobilization, // ✅ add this dependency
+    mobilization,
     type,
     foamType,
+    selectedMaterial,
     materials,
+    settings.laborRate,
+    settings.marginPercent,
   ]);
 
-
-
+  // 💾 Save handler
   const handleSave = () => {
-    if (!name) return alert("Assembly name required.");
+    if (!assemblyName) return alert("Assembly name required.");
+    if (!selectedMaterial) return alert("Please select a material.");
 
     const formData = {
       id: crypto.randomUUID(),
-      name,
-      type,
+      name: assemblyName,
+      materialName: selectedMaterial,
       foamType,
+      type,
       thickness: parseFloat(thickness),
       area: parseFloat(area) || 0,
       height: parseFloat(height) || 0,
       pitch: parseFloat(pitch) || 1,
-      margin: parseFloat(margin),
-      laborRate: parseFloat(laborRate),
+      margin: settings.marginPercent,
+      laborRate: settings.laborRate,
       mobilization: parseFloat(mobilization),
       boardFeet: 0,
       materialCost: 0,
@@ -100,82 +108,135 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
     };
 
     const calculated = calculateAssemblyValues(formData, settings, materials);
-
     addAssembly(calculated);
     recalcTotals();
     onClose();
     resetForm();
   };
 
+  // ♻️ Reset form
   const resetForm = () => {
-    setName("");
+    setAssemblyName("");
     setType("Wall");
+    setSelectedMaterial("");
     setFoamType("Open-Cell");
     setThickness("3");
     setArea("");
     setHeight("");
     setPitch("");
-    setMargin(settings.marginPercent.toString());
-    setLaborRate(settings.laborRate.toString());
+    setMobilization(settings.mobilizationFee.toString());
     setBoardFeet(0);
     setTotalCost(0);
   };
 
+  // 🧱 UI
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg" placement="center">
       <ModalContent>
         <ModalHeader>Add New Assembly</ModalHeader>
         <ModalBody className="flex flex-col gap-4">
-          <Input label="Assembly Name" value={name} onChange={(e) => setName(e.target.value)} />
+          {/* Assembly Info */}
+          <Input
+            label="Assembly Name"
+            value={assemblyName}
+            onChange={(e) => setAssemblyName(e.target.value)}
+          />
 
-          <Select label="Assembly Type" selectedKeys={[type]} onChange={(e) => setType(e.target.value)}>
+          <Select
+            label="Assembly Type"
+            selectedKeys={[type]}
+            onChange={(e) => setType(e.target.value)}
+          >
             {["Wall", "Attic", "Roof", "Crawlspace", "Flat Roof"].map((t) => (
               <SelectItem key={t}>{t}</SelectItem>
             ))}
           </Select>
 
-          <Select label="Foam Type" selectedKeys={[foamType]} onChange={(e) => setFoamType(e.target.value)}>
-            {materials.length > 0 ? (
-              materials.map((m) => <SelectItem key={m.foamType}>{m.foamType}</SelectItem>)
-            ) : (
-              <>
-                <SelectItem key="Open-Cell">Open-Cell</SelectItem>
-                <SelectItem key="Closed-Cell">Closed-Cell</SelectItem>
-              </>
-            )}
+          {/* Material Selector */}
+          <Select
+            label="Material"
+            selectedKeys={[selectedMaterial]}
+            onChange={(e) => {
+              const key = e.target.value;
+              const mat = materials.find((m) => m.name === key);
+              if (mat) {
+                setSelectedMaterial(mat.name);
+                setFoamType(mat.foamType);
+              }
+            }}
+          >
+            {materials.map((m) => (
+              <SelectItem key={m.name}>
+                {`${m.name} — ${m.foamType} ($${m.costPerBdFt.toFixed(3)}/bdft)`}
+              </SelectItem>
+            ))}
           </Select>
 
-          <Input label="Thickness (inches)" type="number" value={thickness} onChange={(e) => setThickness(e.target.value)} />
+          {/* Dimensional Inputs */}
+          <Input
+            label="Thickness (inches)"
+            type="number"
+            value={thickness}
+            onChange={(e) => setThickness(e.target.value)}
+          />
 
           {type === "Wall" && (
             <>
-              <Input label="Linear Feet" type="number" value={area} onChange={(e) => setArea(e.target.value)} />
-              <Input label="Height (ft)" type="number" value={height} onChange={(e) => setHeight(e.target.value)} />
+              <Input
+                label="Linear Feet"
+                type="number"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+              />
+              <Input
+                label="Height (ft)"
+                type="number"
+                value={height}
+                onChange={(e) => setHeight(e.target.value)}
+              />
             </>
           )}
 
           {type === "Attic" && (
             <>
-              <Input label="Area (sqft)" type="number" value={area} onChange={(e) => setArea(e.target.value)} />
-              <Input label="Pitch" type="number" value={pitch} onChange={(e) => setPitch(e.target.value)} />
+              <Input
+                label="Area (sqft)"
+                type="number"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+              />
+              <Input
+                label="Pitch"
+                type="number"
+                value={pitch}
+                onChange={(e) => setPitch(e.target.value)}
+              />
             </>
           )}
 
           {type !== "Wall" && type !== "Attic" && (
-            <Input label="Area (sqft)" type="number" value={area} onChange={(e) => setArea(e.target.value)} />
+            <Input
+              label="Area (sqft)"
+              type="number"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+            />
           )}
 
-          <Input label="Labor Rate ($/bdft)" type="number" value={laborRate} onChange={(e) => setLaborRate(e.target.value)} />
-          <Input label="Mobilization Fee ($)" type="number" value={mobilization} onChange={(e) => setMobilization(e.target.value)} />
-          <Input label="Margin (%)" type="number" value={margin} onChange={(e) => setMargin(e.target.value)} />
+          {/* Cost Inputs */}
+          <Input
+            label="Mobilization Fee ($)"
+            type="number"
+            value={mobilization}
+            onChange={(e) => setMobilization(e.target.value)}
+          />
 
+          {/* Summary */}
           <div className="flex justify-between text-sm text-default-600">
             <span>
               Board Feet:{" "}
               <strong>
-                {boardFeet.toLocaleString(undefined, {
-                  maximumFractionDigits: 0,
-                })}
+                {boardFeet.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </strong>
             </span>
             <span>
