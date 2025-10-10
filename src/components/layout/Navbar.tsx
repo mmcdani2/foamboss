@@ -34,6 +34,11 @@ export default function Navbar() {
             </Link>
           </NavbarItem>
           <NavbarItem>
+            <Link href="/estimator" color="foreground" className="font-medium hover:text-primary">
+              Estimator
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
             <Link href="/jobs" color="foreground" className="font-medium hover:text-primary">
               Jobs
             </Link>
@@ -65,6 +70,9 @@ export default function Navbar() {
         <NavbarMenu>
           <NavbarMenuItem>
             <Link href="/" color="foreground">Dashboard</Link>
+          </NavbarMenuItem>
+          <NavbarMenuItem>
+            <Link href="/estimator" color="foreground">Estimator</Link>
           </NavbarMenuItem>
           <NavbarMenuItem>
             <Link href="/jobs" color="foreground">Jobs</Link>
