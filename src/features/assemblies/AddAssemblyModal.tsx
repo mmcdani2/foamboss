@@ -36,54 +36,76 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
   const [laborRate, setLaborRate] = useState(settings.laborRate.toString()); // ✅ from settings
   const [boardFeet, setBoardFeet] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
+  const [mobilization, setMobilization] = useState(settings.mobilizationFee.toString());
+
 
   useEffect(() => {
+    const a = parseFloat(area) || 0;
+    const h = parseFloat(height) || 0;
+    const p = parseFloat(pitch) || 1;
+    const t = parseFloat(thickness) || 0;
+    const m = parseFloat(margin) || 0;
+    const l = parseFloat(laborRate) || 0;
+    const mob = parseFloat(mobilization) || 0;
+
     let bf = 0;
-    if (type === "Wall" && area && height && thickness) {
-      bf = parseFloat(area) * parseFloat(height) * (parseFloat(thickness) / 12);
-    } else if (type === "Attic" && area && thickness && pitch) {
-      bf = parseFloat(area) * parseFloat(pitch) * (parseFloat(thickness) / 12);
-    } else if (area && thickness) {
-      bf = parseFloat(area) * (parseFloat(thickness) / 12);
-    }
+    if (type === "Wall" && a && h && t) bf = a * h * t;
+    else if (type === "Attic" && a && p && t) bf = a * p * t;
+    else if (a && t) bf = a * t;
     setBoardFeet(bf);
 
+    // ✅ Always calculate base total — even if no board feet yet
     const selectedMaterial = materials.find((m) => m.foamType === foamType);
     const costPerBdFt = selectedMaterial?.costPerBdFt ?? 0.05;
 
     const materialCost = bf * costPerBdFt;
-    const laborCost = bf * parseFloat(laborRate);
-    const subtotal = materialCost + laborCost + settings.mobilizationFee;
-    const marginValue = subtotal * (parseFloat(margin) / 100);
+    const laborCost = bf * l;
+    const subtotal = materialCost + laborCost + mob;
+    const marginValue = subtotal * (m / 100);
     setTotalCost(subtotal + marginValue);
-  }, [area, height, pitch, thickness, margin, laborRate, type, foamType, materials, settings.mobilizationFee]);
-
-  const handleSave = () => {
-  if (!name) return alert("Assembly name required.");
-
-  const formData = {
-    id: crypto.randomUUID(),
-    name,
+  }, [
+    area,
+    height,
+    pitch,
+    thickness,
+    margin,
+    laborRate,
+    mobilization, // ✅ add this dependency
     type,
     foamType,
-    thickness: parseFloat(thickness),
-    area: parseFloat(area) || 0,
-    height: parseFloat(height) || 0,
-    pitch: parseFloat(pitch) || 1,
-    margin: parseFloat(margin),
-    boardFeet: 0,
-    materialCost: 0,
-    laborCost: 0,
-    totalCost: 0,
+    materials,
+  ]);
+
+
+
+  const handleSave = () => {
+    if (!name) return alert("Assembly name required.");
+
+    const formData = {
+      id: crypto.randomUUID(),
+      name,
+      type,
+      foamType,
+      thickness: parseFloat(thickness),
+      area: parseFloat(area) || 0,
+      height: parseFloat(height) || 0,
+      pitch: parseFloat(pitch) || 1,
+      margin: parseFloat(margin),
+      laborRate: parseFloat(laborRate),
+      mobilization: parseFloat(mobilization),
+      boardFeet: 0,
+      materialCost: 0,
+      laborCost: 0,
+      totalCost: 0,
+    };
+
+    const calculated = calculateAssemblyValues(formData, settings, materials);
+
+    addAssembly(calculated);
+    recalcTotals();
+    onClose();
+    resetForm();
   };
-
-  const calculated = calculateAssemblyValues(formData, settings, materials);
-
-  addAssembly(calculated);
-  recalcTotals();
-  onClose();
-  resetForm();
-};
 
   const resetForm = () => {
     setName("");
@@ -144,6 +166,7 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
           )}
 
           <Input label="Labor Rate ($/bdft)" type="number" value={laborRate} onChange={(e) => setLaborRate(e.target.value)} />
+          <Input label="Mobilization Fee ($)" type="number" value={mobilization} onChange={(e) => setMobilization(e.target.value)} />
           <Input label="Margin (%)" type="number" value={margin} onChange={(e) => setMargin(e.target.value)} />
 
           <div className="flex justify-between text-sm text-default-600">

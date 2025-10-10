@@ -4,6 +4,7 @@ import { Material } from "@/features/materials/store/materialStore";
 
 /**
  * Calculates assembly costs using current settings and materials.
+ * Includes per-job mobilization fee override.
  */
 export function calculateAssemblyValues(
   asm: Assembly,
@@ -16,20 +17,24 @@ export function calculateAssemblyValues(
   switch (asm.type) {
     case "Wall":
       if (asm.area && asm.height && asm.thickness) {
-        boardFeet = asm.area * asm.height * (asm.thickness / 12);
+        // ✅ convert inches → feet
+        boardFeet = asm.area * asm.height * asm.thickness;
       }
       break;
+
     case "Attic":
       if (asm.area && asm.pitch && asm.thickness) {
-        boardFeet = asm.area * asm.pitch * (asm.thickness / 12);
+        boardFeet = asm.area * asm.pitch * asm.thickness;
       }
       break;
+
     default:
       if (asm.area && asm.thickness) {
-        boardFeet = asm.area * (asm.thickness / 12);
+        boardFeet = asm.area * asm.thickness;
       }
       break;
   }
+
 
   // --- Material cost lookup ---
   const matchedMaterial = materials.find(
@@ -45,10 +50,13 @@ export function calculateAssemblyValues(
   const materialCost = boardFeet * costPerBdft;
 
   // --- Labor cost ---
-  const laborCost = boardFeet * settings.laborRate;
+  const laborRate = asm.laborRate ?? settings.laborRate; // ✅ allow per-job override
+  const laborCost = boardFeet * laborRate;
 
   // --- Subtotal + mobilization fee ---
-  let subtotal = materialCost + laborCost + settings.mobilizationFee;
+  const mobilizationFee =
+    asm.mobilization ?? settings.mobilizationFee ?? 0; // ✅ allow per-job override
+  let subtotal = materialCost + laborCost + mobilizationFee;
 
   // --- Optional fuel surcharge ---
   if (settings.includeFuelSurcharge) {
@@ -56,7 +64,7 @@ export function calculateAssemblyValues(
   }
 
   // --- Margin ---
-  const marginValue = subtotal * (asm.margin / 100);
+  const marginValue = subtotal * ((asm.margin ?? settings.marginPercent) / 100);
   const totalCost = subtotal + marginValue;
 
   return {
@@ -65,5 +73,6 @@ export function calculateAssemblyValues(
     materialCost: Math.round(materialCost),
     laborCost: Math.round(laborCost),
     totalCost: Math.round(totalCost),
+    mobilization: mobilizationFee,
   };
 }

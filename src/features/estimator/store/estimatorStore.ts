@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { useMaterialStore } from "@/features/materials/store/materialStore";
+import { persist } from "zustand/middleware";
 
 export interface Assembly {
   id: string;
@@ -7,14 +7,16 @@ export interface Assembly {
   type: string;
   foamType: string;
   thickness: number;
-  area?: number;
-  height?: number;
-  pitch?: number;
+  area: number;
+  height: number;
+  pitch: number;
+  margin: number;
+  laborRate: number;
+  mobilization: number;
   boardFeet: number;
   materialCost: number;
   laborCost: number;
   totalCost: number;
-  margin: number;
 }
 
 export interface Estimate {
@@ -25,9 +27,10 @@ export interface Estimate {
   defaultFoam?: string;
   totalBoardFeet: number;
   totalCost: number;
+  createdAt: string;
 }
 
-export interface EstimatorState {
+interface EstimatorState {
   estimate: Estimate;
   assemblies: Assembly[];
   addAssembly: (assembly: Assembly) => void;
@@ -35,80 +38,89 @@ export interface EstimatorState {
   recalcTotals: () => void;
   resetEstimate: () => void;
   setEstimate: (data: Partial<Estimate>) => void;
+  saveEstimate: () => void; // ✅ NEW
+  loadEstimate: (id: string) => void; // ✅ NEW
 }
 
-export const useEstimatorStore = create<EstimatorState>((set, get) => ({
-  estimate: {
-    id: crypto.randomUUID(),
-    totalBoardFeet: 0,
-    totalCost: 0,
-  },
-  assemblies: [],
-
-  addAssembly: (assembly) => {
-    const { materials } = useMaterialStore.getState();
-
-    // Get material by foam type
-    const selectedMaterial = materials.find(
-      (m) => m.foamType === assembly.foamType
-    );
-
-    const costPerBdFt = selectedMaterial?.costPerBdFt ?? 0.05; // fallback
-    const materialCost = assembly.boardFeet * costPerBdFt;
-
-    const updatedAssembly = {
-      ...assembly,
-      materialCost,
-      totalCost:
-        materialCost +
-        assembly.laborCost +
-        materialCost * (assembly.margin / 100),
-    };
-
-    const newAssemblies = [...get().assemblies, updatedAssembly];
-    set({ assemblies: newAssemblies });
-    get().recalcTotals();
-  },
-
-  removeAssembly: (id) => {
-    const newAssemblies = get().assemblies.filter((a) => a.id !== id);
-    set({ assemblies: newAssemblies });
-    get().recalcTotals();
-  },
-
-  recalcTotals: () => {
-    const assemblies = get().assemblies;
-    const totalBoardFeet = assemblies.reduce(
-      (acc, a) => acc + a.boardFeet,
-      0
-    );
-    const totalCost = assemblies.reduce((acc, a) => acc + a.totalCost, 0);
-    set({
-      estimate: {
-        ...get().estimate,
-        totalBoardFeet,
-        totalCost,
-      },
-    });
-  },
-
-  resetEstimate: () => {
-    set({
+export const useEstimatorStore = create<EstimatorState>()(
+  persist(
+    (set, get) => ({
       estimate: {
         id: crypto.randomUUID(),
         totalBoardFeet: 0,
         totalCost: 0,
+        createdAt: new Date().toISOString(),
       },
       assemblies: [],
-    });
-  },
 
-  setEstimate: (data) => {
-    set({
-      estimate: {
-        ...get().estimate,
-        ...data,
+      addAssembly: (assembly) => {
+        const newAssemblies = [...get().assemblies, assembly];
+        set({ assemblies: newAssemblies });
+        get().recalcTotals();
       },
-    });
-  },
-}));
+
+      removeAssembly: (id) => {
+        const newAssemblies = get().assemblies.filter((a) => a.id !== id);
+        set({ assemblies: newAssemblies });
+        get().recalcTotals();
+      },
+
+      recalcTotals: () => {
+        const assemblies = get().assemblies;
+        const totalBoardFeet = assemblies.reduce((sum, a) => sum + a.boardFeet, 0);
+        const totalCost = assemblies.reduce((sum, a) => sum + a.totalCost, 0);
+        set({
+          estimate: {
+            ...get().estimate,
+            totalBoardFeet,
+            totalCost,
+          },
+        });
+      },
+
+      resetEstimate: () => {
+        set({
+          estimate: {
+            id: crypto.randomUUID(),
+            totalBoardFeet: 0,
+            totalCost: 0,
+            createdAt: new Date().toISOString(),
+          },
+          assemblies: [],
+        });
+      },
+
+      setEstimate: (data) => {
+        set({
+          estimate: {
+            ...get().estimate,
+            ...data,
+          },
+        });
+      },
+
+      saveEstimate: () => {
+        const saved = JSON.parse(localStorage.getItem("foamboss-saved-estimates") || "[]");
+        const current = get().estimate;
+        const assemblies = get().assemblies;
+        saved.push({ ...current, assemblies });
+        localStorage.setItem("foamboss-saved-estimates", JSON.stringify(saved));
+        alert("✅ Estimate saved successfully!");
+      },
+
+      loadEstimate: (id) => {
+        const saved = JSON.parse(localStorage.getItem("foamboss-saved-estimates") || "[]");
+        const match = saved.find((e: any) => e.id === id);
+        if (match) {
+          set({
+            estimate: match,
+            assemblies: match.assemblies || [],
+          });
+        }
+      },
+    }),
+    {
+      name: "foamboss-estimator-storage",
+    }
+  )
+);

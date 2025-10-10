@@ -13,13 +13,10 @@ import {
 } from "@heroui/react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useEstimatorStore } from "@/features/estimator/store/estimatorStore";
 import AddAssemblyModal from "@/features/assemblies/AddAssemblyModal";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { useSettingsStore } from "@/features/settings/store/settingsStore";
-import { useMaterialStore } from "@/features/materials/store/materialStore";
-
 
 export default function EstimatorPage() {
     const steps = ["Estimate Setup", "Add Assemblies", "Summary"];
@@ -35,6 +32,8 @@ export default function EstimatorPage() {
     const prevStep = () => {
         if (currentStep > 0) setCurrentStep(currentStep - 1);
     };
+
+    const { saveEstimate } = useEstimatorStore();
 
     return (
         <div className="relative flex flex-col min-h-screen bg-background text-foreground">
@@ -295,7 +294,7 @@ export default function EstimatorPage() {
                                             <Button color="secondary" variant="flat">
                                                 Preview Quote
                                             </Button>
-                                            <Button color="secondary" variant="solid">
+                                            <Button color="secondary" variant="solid" onPress={() => saveEstimate()}>
                                                 Save Estimate
                                             </Button>
                                         </div>
