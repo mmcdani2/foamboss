@@ -8,7 +8,7 @@
 - **Animations & Forms:** Framer Motion, React Hook Form, Zod
 - **Icons:** Lucide React
 - **Routing:** React Router DOM 7.x
-- **Utility Libraries:** clsx, date-fns, tailwind-variants
+- **Utility Libraries:** clsx, date-fns, tailwind-variants, recharts
 
 ---
 
@@ -42,6 +42,7 @@
 | react-hook-form | 7.64.0 | Form management |
 | react-router-dom | 7.9.4 | Routing |
 | tailwind-variants | 3.1.1 | Tailwind variant generator |
+| recharts | 2.15.0 | Charting library for KPIs |
 | zod | 4.1.12 | Schema validation |
 
 ---
@@ -70,7 +71,7 @@ pnpm init
 
 ### 2️⃣ Install Core Dependencies
 ```bash
-pnpm add react react-dom react-router-dom @supabase/supabase-js @heroui/react clsx date-fns framer-motion react-hook-form zod tailwind-variants lucide-react
+pnpm add react react-dom react-router-dom @supabase/supabase-js @heroui/react clsx date-fns framer-motion react-hook-form zod tailwind-variants lucide-react recharts
 ```
 
 ### 3️⃣ Install HeroUI Components
@@ -105,8 +106,8 @@ export default heroui({
           foreground: "#ffffff"
         },
         secondary: {
-          DEFAULT: "#F5B301",
-          foreground: "#121212"
+          DEFAULT: "#A78BFA",
+          foreground: "#ffffff"
         },
         content1: "#1E1E1E"
       }
@@ -120,7 +121,7 @@ export default heroui({
           foreground: "#ffffff"
         },
         secondary: {
-          DEFAULT: "#F5B301",
+          DEFAULT: "#A78BFA",
           foreground: "#121212"
         },
         content1: "#f4f4f4"
@@ -130,6 +131,8 @@ export default heroui({
 });
 ```
 
+---
+
 ### src/styles/globals.css
 ```css
 @import "tailwindcss";
@@ -138,9 +141,11 @@ export default heroui({
 @custom-variant dark (&:is(.dark *));
 
 html, body {
-  @apply bg-dark text-white;
+  @apply bg-background text-foreground overflow-x-hidden;
 }
 ```
+
+---
 
 ### src/app/main.tsx
 ```tsx
@@ -170,6 +175,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   ```
   public-hoist-pattern[]=*@heroui/*
   ```
+- Recharts now powers KPI visualizations with tooltips, gradients, and motion transitions.
 
 ---
 
