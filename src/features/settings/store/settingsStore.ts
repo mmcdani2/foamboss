@@ -10,12 +10,16 @@ export interface UserSetting {
   id: string;
   name: string;
   role: string;
-  status: "Active" | "Inactive" | "Paused" | "Vacation";
-  payType: PayType;
+  status: string;
+  payType: string;
   hourlyRate?: number;
   percentageRate?: number;
   email?: string;
+  team?: string;
+  avatar?: string;
+  age?: string;
 }
+
 
 export interface Settings {
   companyName: string;

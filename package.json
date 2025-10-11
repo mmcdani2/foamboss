@@ -29,6 +29,7 @@
     "@heroui/switch": "^2.2.24",
     "@heroui/table": "^2.2.27",
     "@heroui/tooltip": "^2.2.24",
+    "@react-types/shared": "^3.32.1",
     "@supabase/supabase-js": "^2.74.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

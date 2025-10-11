@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Table,
   TableHeader,
@@ -8,6 +8,11 @@ import {
   TableCell,
   Input,
   Button,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   DropdownTrigger,
   Dropdown,
   DropdownMenu,
@@ -15,26 +20,21 @@ import {
   Chip,
   User,
   Pagination,
+  Select,
+  SelectItem,
 } from "@heroui/react";
 import { Key, SortDescriptor } from "@react-types/shared";
 import { Eye, Edit3, Trash2 } from "lucide-react";
-
+import { useSettingsStore } from "@/features/settings/store/settingsStore";
+import type { UserSetting } from "@/features/settings/store/settingsStore";
+import AddUserModal from "./AddUserModal";
 
 // ---------- Types ----------
-interface UserType {
-  id: number;
-  name: string;
-  role: string;
-  team: string;
-  status: string;
-  age: string;
-  avatar: string;
-  email: string;
-}
+type UserColumnKey = "id" | "name" | "age" | "role" | "team" | "email" | "status";
 
 interface ColumnType {
   name: string;
-  uid: keyof UserType | "actions";
+  uid: UserColumnKey | "actions";
   sortable?: boolean;
 }
 
@@ -68,29 +68,105 @@ export const statusOptions: StatusOption[] = [
   { name: "Vacation", uid: "vacation" },
 ];
 
-export const users: UserType[] = [
-  {
-    id: 1,
-    name: "Tony Reichert",
-    role: "CEO",
-    team: "Management",
-    status: "active",
-    age: "29",
-    avatar: "https://i.pravatar.cc/150?u=a042581f4e29026024d",
-    email: "tony.reichert@example.com",
-  },
-  {
-    id: 2,
-    name: "Zoey Lang",
-    role: "Tech Lead",
-    team: "Development",
-    status: "paused",
-    age: "25",
-    avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-    email: "zoey.lang@example.com",
-  },
-  // ... (trimmed for brevity — rest of users unchanged)
-];
+
+
+interface EditUserModalProps {
+  isOpen: boolean;
+  user: UserSetting | null;
+  onClose: () => void;
+  onSave: (updates: Partial<UserSetting>) => void;
+}
+
+const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, onSave }) => {
+  const [form, setForm] = useState<Partial<UserSetting>>({});
+
+  useEffect(() => {
+    if (user) {
+      setForm({
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        team: user.team,
+        email: user.email,
+        payType: user.payType,
+        hourlyRate: user.hourlyRate,
+        percentageRate: user.percentageRate,
+        age: user.age,
+        avatar: user.avatar,
+      });
+    }
+  }, [user, isOpen]);
+
+  if (!user) return null;
+
+  const handleSave = () => {
+    if (!form.name || !form.role) {
+      alert("Name and role are required.");
+      return;
+    }
+
+    onSave({
+      name: form.name,
+      role: form.role,
+      status: form.status ?? user.status,
+      team: form.team,
+      email: form.email,
+      payType: form.payType ?? user.payType,
+      hourlyRate: form.hourlyRate,
+      percentageRate: form.percentageRate,
+      age: form.age,
+      avatar: form.avatar,
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} placement="center" size="md">
+      <ModalContent>
+        <ModalHeader>Edit User</ModalHeader>
+        <ModalBody className="flex flex-col gap-4">
+          <Input
+            label="Name"
+            value={form.name ?? ""}
+            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+          />
+          <Input
+            label="Role"
+            value={form.role ?? ""}
+            onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
+          />
+          <Input
+            label="Team"
+            value={form.team ?? ""}
+            onChange={(e) => setForm((prev) => ({ ...prev, team: e.target.value }))}
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={form.email ?? ""}
+            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+          />
+          <Select
+            label="Status"
+            selectedKeys={[form.status ?? user.status ?? "Active"]}
+            onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+          >
+            {statusOptions.map((status) => (
+              <SelectItem key={status.name}>{status.name}</SelectItem>
+            ))}
+          </Select>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="default" variant="flat" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button color="secondary" onPress={handleSave}>
+            Save Changes
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};
 
 // ---------- Utilities ----------
 export const capitalize = (s: string): string =>
@@ -182,6 +258,8 @@ const statusColorMap: Record<string, "success" | "danger" | "warning"> = {
 
 // ---------- Component ----------
 export default function UserSettings() {
+  const { settings, removeUser, updateUser } = useSettingsStore();
+  const users = settings.users;
   const [filterValue, setFilterValue] = useState<string>("");
   const [selectedKeys, setSelectedKeys] = useState<Set<Key>>(new Set());
   const [visibleColumns, setVisibleColumns] = useState<Set<Key>>(
@@ -194,28 +272,51 @@ export default function UserSettings() {
     direction: "ascending",
   });
   const [page, setPage] = useState<number>(1);
+  const normalizedStatusFilter = useMemo(() => {
+    const values = Array.from(statusFilter).map((status) =>
+      String(status).toLowerCase()
+    );
+    return values.includes("all") ? [] : values;
+  }, [statusFilter]);
 
   // ---------- CRUD State ----------
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserSetting | null>(null);
 
   // ---------- CRUD Handlers ----------
-  const handleView = (user: UserType) => {
+  const handleView = useCallback((user: UserSetting) => {
     setSelectedUser(user);
     setIsViewModalOpen(true);
-  };
+  }, []);
 
-  const handleEdit = (user: UserType) => {
+  const handleEdit = useCallback((user: UserSetting) => {
     setSelectedUser(user);
     setIsEditModalOpen(true);
-  };
+  }, []);
 
-  const handleDelete = (id: number) => {
-    // TODO: hook this up to your store once you integrate Supabase/Zustand
-    console.log("Delete user ID:", id);
-  };
+  const handleDelete = useCallback(
+    (id: string) => {
+      removeUser(id);
+    },
+    [removeUser]
+  );
+
+  const handleUpdateUser = useCallback(
+    (updates: Partial<UserSetting>) => {
+      if (!selectedUser) return;
+      updateUser(selectedUser.id, updates);
+      setIsEditModalOpen(false);
+      setSelectedUser(null);
+    },
+    [selectedUser, updateUser]
+  );
+
+  const handleCloseEditModal = useCallback(() => {
+    setIsEditModalOpen(false);
+    setSelectedUser(null);
+  }, []);
 
 
   const hasSearchFilter = Boolean(filterValue);
@@ -223,45 +324,57 @@ export default function UserSettings() {
   const headerColumns = useMemo(() => {
     if (visibleColumns.has("all")) return columns;
     return columns.filter((column) => Array.from(visibleColumns).includes(column.uid));
-  }, [visibleColumns]);
+  }, [visibleColumns, users]);
 
   const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
     if (hasSearchFilter) {
       filteredUsers = filteredUsers.filter((user) =>
-        user.name.toLowerCase().includes(filterValue.toLowerCase())
+        (user.name ?? "").toLowerCase().includes(filterValue.toLowerCase())
       );
     }
-    if (
-      !statusFilter.has("all") &&
-      Array.from(statusFilter).some((s) => s !== "all")
-    ) {
+    if (normalizedStatusFilter.length) {
       filteredUsers = filteredUsers.filter((user) =>
-        Array.from(statusFilter).includes(user.status)
+        normalizedStatusFilter.includes((user.status ?? "").toLowerCase())
       );
     }
     return filteredUsers;
-  }, [filterValue, statusFilter]);
+  }, [filterValue, normalizedStatusFilter, users]);
 
   const pages = Math.ceil(filteredItems.length / rowsPerPage) || 1;
   const start = (page - 1) * rowsPerPage;
   const end = start + rowsPerPage;
   const items = filteredItems.slice(start, end);
 
-  const sortedItems = useMemo(() => {
+  const sortedItems = useMemo<UserSetting[]>(() => {
+    if (!sortDescriptor.column || sortDescriptor.column === "actions") {
+      return items;
+    }
+    const column = sortDescriptor.column as UserColumnKey;
     return [...items].sort((a, b) => {
-      const first = a[sortDescriptor.column as keyof UserType];
-      const second = b[sortDescriptor.column as keyof UserType];
-      const cmp = first < second ? -1 : first > second ? 1 : 0;
+      const first = a[column];
+      const second = b[column];
+      const normalize = (value: unknown) => {
+        if (value == null) return "";
+        if (typeof value === "number") return value;
+        return String(value).toLowerCase();
+      };
+      const firstValue = normalize(first);
+      const secondValue = normalize(second);
+      if (typeof firstValue === "number" && typeof secondValue === "number") {
+        return sortDescriptor.direction === "descending"
+          ? secondValue - firstValue
+          : firstValue - secondValue;
+      }
+      const cmp = firstValue < secondValue ? -1 : firstValue > secondValue ? 1 : 0;
       return sortDescriptor.direction === "descending" ? -cmp : cmp;
     });
-  }, [sortDescriptor, items]);
+  }, [sortDescriptor, items, users]);
 
-  const renderCell = useCallback((user: UserType, columnKey: Key) => {
-    const key = columnKey as keyof UserType;
-    const cellValue = user[key];
-    switch (columnKey) {
-      case "name":
+  const renderCell = useCallback(
+    (user: UserSetting, columnKey: Key) => {
+      switch (columnKey) {
+        case "name":
         return (
           <User
             avatarProps={{ radius: "lg", src: user.avatar }}
@@ -269,25 +382,26 @@ export default function UserSettings() {
             name={user.name}
           />
         );
-      case "role":
+        case "role":
         return (
           <div className="flex flex-col">
             <p className="text-bold text-small capitalize">{user.role}</p>
             <p className="text-bold text-tiny capitalize text-default-400">{user.team}</p>
           </div>
         );
-      case "status":
+        case "status":
+        const statusKey = (user.status ?? "active").toLowerCase() as keyof typeof statusColorMap;
         return (
           <Chip
             className="capitalize"
-            color={statusColorMap[user.status.toLowerCase()]}
+            color={statusColorMap[statusKey] ?? "default"}
             size="sm"
             variant="flat"
           >
             {user.status}
           </Chip>
         );
-      case "actions":
+        case "actions":
         return (
           <div className="flex justify-center items-center gap-2">
             <Button
@@ -315,7 +429,7 @@ export default function UserSettings() {
             <Button
               isIconOnly
               size="sm"
-              variant="flat"
+              variant="light"
               color="danger"
               aria-label="Delete"
               className="min-w-[28px] h-[28px]"
@@ -323,13 +437,16 @@ export default function UserSettings() {
             >
               <Trash2 className="w-4 h-4" />
             </Button>
+
           </div>
         );
 
-      default:
-        return cellValue as string;
+        default:
+        return user[columnKey as UserColumnKey] ?? "";
     }
-  }, []);
+    },
+    [handleDelete, handleEdit, handleView]
+  );
 
   const onSearchChange = useCallback((value: string) => {
     setFilterValue(value);
@@ -417,9 +534,11 @@ export default function UserSettings() {
               </DropdownMenu>
             </Dropdown>
 
-            <Button color="secondary" endContent={<PlusIcon />}>
+            <Button color="primary" endContent={<PlusIcon />} onPress={() => setIsAddModalOpen(true)}>
               Add New
             </Button>
+            <AddUserModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+
           </div>
         </div>
 
@@ -440,7 +559,7 @@ export default function UserSettings() {
         </div>
       </div>
     );
-  }, [filterValue, statusFilter, visibleColumns, onRowsPerPageChange, onSearchChange]);
+  }, [filterValue, statusFilter, visibleColumns, onRowsPerPageChange, onSearchChange, users]);
 
   const bottomContent = useMemo(() => {
     return (
@@ -483,7 +602,7 @@ export default function UserSettings() {
         </div>
       </div>
     );
-  }, [selectedKeys, page, pages, filteredItems.length]);
+  }, [selectedKeys, page, pages, filteredItems.length, users]);
 
   return (
     <>
@@ -525,9 +644,17 @@ export default function UserSettings() {
         </TableBody>
       </Table>
 
-      {isAddModalOpen && <div className="hidden">Add User Modal Here</div>}
-      {isEditModalOpen && selectedUser && <div className="hidden">Edit {selectedUser.name}</div>}
+      <EditUserModal
+        isOpen={isEditModalOpen}
+        user={selectedUser}
+        onClose={handleCloseEditModal}
+        onSave={handleUpdateUser}
+      />
       {isViewModalOpen && selectedUser && <div className="hidden">View {selectedUser.name}</div>}
     </>
   );
 }
+
+
+
+
