@@ -91,11 +91,23 @@ export default function SummaryCard({ onBack }: SummaryCardProps) {
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      background: "rgba(30,30,30,0.9)",
+                      backgroundColor: "rgba(24, 24, 27, 0.9)", // glassy dark gray
+                      border: "1px solid rgba(63,63,70,0.4)", // subtle border
                       borderRadius: "8px",
-                      border: "none",
-                      color: "#fff",
+                      backdropFilter: "blur(8px)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
                     }}
+                    labelStyle={{
+                      color: "#fafafa",
+                      fontWeight: 600,
+                      fontSize: "0.8rem",
+                      marginBottom: "2px",
+                    }}
+                    itemStyle={{
+                      color: "#d4d4d8",
+                      fontSize: "0.8rem",
+                    }}
+                    cursor={{ stroke: "#a78bfa", strokeWidth: 1 }}
                   />
                 </PieChart>
               </ResponsiveContainer>

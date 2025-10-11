@@ -9,6 +9,8 @@ import {
   Tab
 } from "@heroui/react";
 import { Info } from "lucide-react";
+import InfoTip from "@/components/common/InfoTip";
+
 import React, { useState } from "react";
 
 interface PricingSettingsProps {
@@ -17,31 +19,14 @@ interface PricingSettingsProps {
 }
 
 // === Reusable Tooltip ===
-const InfoTip = ({ content }: { content: string }) => (
-  <Tooltip
-    content={content}
-    placement="right"
-    className="
-      max-w-xs text-sm
-      backdrop-blur-md
-      bg-background/70
-      dark:bg-default-50/20
-      border border-default/30
-      shadow-lg
-      rounded-xl
-      p-3
-    "
-  >
-    <Info
-      size={16}
-      className="
+<Info
+  size={16}
+  className="
         text-default-400 cursor-pointer 
         hover:text-primary transition-all duration-200 
         hover:scale-110 hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]
       "
-    />
-  </Tooltip>
-);
+/>
 
 export default function PricingSettings({ pricing, setPricing }: PricingSettingsProps) {
   const handleChange = (key: string, value: number | string | boolean) => {
@@ -169,6 +154,7 @@ export default function PricingSettings({ pricing, setPricing }: PricingSettings
               onChange={(e) => handleChange("materialOC", +e.target.value)}
               variant="bordered"
               min={0}
+              step="0.01"
             />
             <Input
               type="number"
@@ -176,7 +162,8 @@ export default function PricingSettings({ pricing, setPricing }: PricingSettings
               value={pricing.materialCC ?? ""}
               onChange={(e) => handleChange("materialCC", +e.target.value)}
               variant="bordered"
-              min={0}
+              min={0.0}
+              step="0.01"
             />
             <Input
               type="number"
