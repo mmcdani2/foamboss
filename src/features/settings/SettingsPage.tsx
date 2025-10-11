@@ -9,11 +9,12 @@ import {
 import { useEffect, useState } from "react";
 import { useHydratedSettings } from "@/features/settings/store/settingsStore";
 import CompanySettings from "./components/Companysettings";
-import PricingSettings from "./components/Pricingsettings";
+import PricingSettings from "./components/PricingSettings";
 import TemplateSettings from "./components/TemplateSettings";
 import UserSettings from "./components/UserSettings";
 import IntegrationSettings from "./components/IntegrationSettings";
 import { toast } from "sonner";
+import { Building2, DollarSign, FileText, Users, Plug } from "lucide-react";
 
 export default function SettingsPage() {
   const { settings, updateSettings, hydrated } = useHydratedSettings();
@@ -77,9 +78,10 @@ export default function SettingsPage() {
     });
 
     toast.success("Settings saved successfully!", {
-    description: "All configuration changes have been updated.",
-  });
+      description: "All configuration changes have been updated.",
+    });
   };
+
 
   // --- UI ---
   return (
@@ -95,22 +97,29 @@ export default function SettingsPage() {
 
         <CardBody>
           <Tabs
-            color="secondary"
-            variant="underlined"
             aria-label="Settings Tabs"
+            color="secondary"
+            variant="solid"
+            classNames={{
+              tabList: [
+                // remove border, add soft background & shadow
+                "bg-default/30 dark:bg-background/30 backdrop-blur-sm",
+                "shadow-sm dark:shadow-md",
+                "rounded-xl p-1",
+                "transition-all duration-300",
+              ].join(" "),
+              tabContent: [
+                "text-[15px] font-normal transition-colors",
+                "text-foreground dark:text-foreground",
+              ].join(" "),
+            }}
           >
             <Tab key="company" title="Company">
-              <CompanySettings
-                company={company}
-                setCompany={setCompany}
-              />
+              <CompanySettings company={company} setCompany={setCompany} />
             </Tab>
 
             <Tab key="pricing" title="Pricing">
-              <PricingSettings
-                pricing={pricing}
-                setPricing={setPricing}
-              />
+              <PricingSettings />
             </Tab>
 
             <Tab key="templates" title="Templates">

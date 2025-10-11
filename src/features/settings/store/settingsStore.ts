@@ -10,10 +10,11 @@ export interface UserSetting {
   id: string;
   name: string;
   role: string;
-  status: "Active" | "Inactive";
+  status: "Active" | "Inactive" | "Paused" | "Vacation";
   payType: PayType;
   hourlyRate?: number;
   percentageRate?: number;
+  email?: string;
 }
 
 export interface Settings {
@@ -25,7 +26,17 @@ export interface Settings {
   marginPercent: number;
   mobilizationFee: number;
   includeFuelSurcharge: boolean;
-  users: UserSetting[]; 
+  prodTypical: number;
+  prodWideOpen: number;
+  prodTight: number;
+  autoProductivity: boolean;
+  crewSize: number;
+  materialOC: number;
+  materialCC: number;
+  materialMarkup: number;
+  overhead: number;
+  profitMargin: number;
+  users: UserSetting[];
 }
 
 export interface SettingsState {
@@ -46,17 +57,40 @@ export const useSettingsStore = create<SettingsState>()(
         address: "",
         phone: "",
         licenseNumber: "",
-        laborRate: 1.25,
+        laborRate: 35,
         marginPercent: 25,
         mobilizationFee: 50,
         includeFuelSurcharge: false,
+        prodTypical: 900,
+        prodWideOpen: 1260,
+        prodTight: 630,
+        autoProductivity: true,
+        crewSize: 3,
+        materialOC: 0.45,
+        materialCC: 1.0,
+        materialMarkup: 15,
+        overhead: 10,
+        profitMargin: 20,
         users: [],
       },
 
       updateSettings: (data) => {
-        const updated = { ...get().settings, ...data };
-        set({ settings: updated });
-        console.log("✅ Settings updated:", updated);
+        const current = get().settings;
+        const merged = { ...current, ...data };
+
+        // Apply auto productivity logic only if enabled
+        if (
+          merged.autoProductivity &&
+          data.prodTypical &&
+          !data.prodWideOpen &&
+          !data.prodTight
+        ) {
+          merged.prodWideOpen = Math.round(data.prodTypical * 1.4);
+          merged.prodTight = Math.round(data.prodTypical * 0.7);
+        }
+
+        set({ settings: merged });
+        console.log("✅ Settings updated:", merged);
       },
 
       addUser: (user) => {
@@ -89,17 +123,28 @@ export const useSettingsStore = create<SettingsState>()(
       },
 
       resetSettings: () => {
-        const defaults = {
+        const defaults: Settings = {
           companyName: "",
           address: "",
           phone: "",
           licenseNumber: "",
-          laborRate: 1.25,
+          laborRate: 35,
           marginPercent: 25,
           mobilizationFee: 50,
           includeFuelSurcharge: false,
+          prodTypical: 900,
+          prodWideOpen: 1260,
+          prodTight: 630,
+          autoProductivity: true,
+          crewSize: 3, 
+          materialOC: 0.45, 
+          materialCC: 1.0, 
+          materialMarkup: 15, 
+          overhead: 10, 
+          profitMargin: 20, 
           users: [],
         };
+
         set({ settings: defaults });
         console.log("⚙️ Settings reset to defaults");
       },

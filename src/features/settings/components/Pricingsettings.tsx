@@ -3,235 +3,341 @@ import {
   Card,
   CardBody,
   Input,
-  Tooltip,
   Switch,
   Tabs,
-  Tab
+  Tab,
 } from "@heroui/react";
-import { Info } from "lucide-react";
 import InfoTip from "@/components/common/InfoTip";
+import { useMemo, useState } from "react";
+import { useSettingsStore } from "@/features/settings/store/settingsStore";
 
-import React, { useState } from "react";
+export default function PricingSettings() {
+  const { settings, updateSettings } = useSettingsStore();
 
-interface PricingSettingsProps {
-  pricing: any;
-  setPricing: (val: any) => void;
-}
-
-// === Reusable Tooltip ===
-<Info
-  size={16}
-  className="
-        text-default-400 cursor-pointer 
-        hover:text-primary transition-all duration-200 
-        hover:scale-110 hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]
-      "
-/>
-
-export default function PricingSettings({ pricing, setPricing }: PricingSettingsProps) {
-  const handleChange = (key: string, value: number | string | boolean) => {
-    setPricing({ ...pricing, [key]: value });
-  };
-
-  // === Local Preview State ===
+  // === UI States ===
   const [materialType, setMaterialType] = useState<"OC" | "CC">("OC");
   const [condition, setCondition] = useState<"wide" | "typical" | "tight">("typical");
 
-  // === Constants & Defaults ===
-  const exampleBoardFeet = 1000;
-  const ocCost = pricing.materialOC ?? 0.45;
-  const ccCost = pricing.materialCC ?? 1.0;
-  const materialCostPerBdft = materialType === "OC" ? ocCost : ccCost;
+  // === Handler ===
+  const handleChange = (key: string, value: number | string | boolean) => {
+    const updated: Record<string, any> = { [key]: value };
 
-  const materialMarkup = pricing.materialMarkup ?? 15;
-  const mobilizationFee = pricing.mobilizationFee ?? 50;
-  const overhead = pricing.overhead ?? 10;
-  const profitMargin = pricing.profitMargin ?? 20;
+    // Auto productivity recalculation
+    if (
+      (key === "prodTypical" && settings.autoProductivity) ||
+      (key === "autoProductivity" && value === true)
+    ) {
+      const typical = key === "prodTypical" ? Number(value) : settings.prodTypical;
+      updated.prodWideOpen = Math.round(typical * 1.4);
+      updated.prodTight = Math.round(typical * 0.7);
+    }
 
-  const prodWide = pricing.prodWideOpen ?? 1250;
-  const prodTypical = pricing.prodTypical ?? 900;
-  const prodTight = pricing.prodTight ?? 600;
+    updateSettings(updated);
+  };
 
-  const productivity =
-    condition === "wide"
-      ? prodWide
-      : condition === "typical"
-      ? prodTypical
-      : prodTight;
+  // === Derived Calculations (Reactive) ===
+  const {
+    productivity,
+    markedUpMaterial,
+    laborHours,
+    laborCost,
+    estimatedSell,
+    overhead,
+    profitMargin,
+  } = useMemo(() => {
+    const exampleBoardFeet = 1000;
+    const ocCost = settings.materialOC ?? 0.45;
+    const ccCost = settings.materialCC ?? 1.0;
+    const materialCostPerBdft = materialType === "OC" ? ocCost : ccCost;
 
-  const laborRate = pricing.laborRate ?? 35;
-  const crewSize = pricing.crewSize ?? 2;
+    const materialMarkup = settings.materialMarkup ?? 15;
+    const mobilizationFee = settings.mobilizationFee ?? 50;
+    const overhead = settings.overhead ?? 10;
+    const profitMargin = settings.profitMargin ?? 20;
+    const laborRate = settings.laborRate ?? 35;
+    const crewSize = settings.crewSize ?? 2;
 
-  // === Calculations ===
-  const rawMaterialCost = materialCostPerBdft * exampleBoardFeet;
-  const markedUpMaterial = rawMaterialCost * (1 + materialMarkup / 100);
-  const laborHours = exampleBoardFeet / productivity;
-  const laborCost = laborHours * laborRate * crewSize;
+    const prodTypical = settings.prodTypical ?? 900;
+    const prodWide = settings.autoProductivity ? Math.round(prodTypical * 1.4) : settings.prodWideOpen ?? 1200;
+    const prodTight = settings.autoProductivity ? Math.round(prodTypical * 0.7) : settings.prodTight ?? 600;
 
-  const jobCost = laborCost + markedUpMaterial + mobilizationFee;
-  const overheadMult = 1 + overhead / 100;
-  const profitMult = 1 + profitMargin / 100;
-  const estimatedSell = (jobCost * overheadMult * profitMult).toFixed(2);
+    const productivity =
+      condition === "wide" ? prodWide : condition === "typical" ? prodTypical : prodTight;
+
+    const rawMaterialCost = materialCostPerBdft * exampleBoardFeet;
+    const markedUpMaterial = rawMaterialCost * (1 + materialMarkup / 100);
+    const laborHours = exampleBoardFeet / productivity;
+    const laborCost = laborHours * laborRate * crewSize;
+    const jobCost = laborCost + markedUpMaterial + mobilizationFee;
+    const overheadMult = 1 + overhead / 100;
+    const profitMult = 1 + profitMargin / 100;
+    const estimatedSell = (jobCost * overheadMult * profitMult).toFixed(2);
+
+    return {
+      productivity,
+      markedUpMaterial,
+      laborHours,
+      laborCost,
+      estimatedSell,
+      overhead,
+      profitMargin,
+    };
+  }, [settings, materialType, condition]);
 
   const conditionLabel = (key: string) =>
     key === "wide" ? "Wide-Open" : key === "typical" ? "Typical" : "Tight";
 
+  // === RENDER ===
   return (
-    <div className="grid sm:grid-cols-2 gap-6">
-      {/* === LEFT COLUMN === */}
-      <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      {/* LEFT COLUMN */}
+      <div className="space-y-4 sm:space-y-6 order-last sm:order-first">
         {/* === LABOR CONFIG === */}
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="font-semibold text-base">Labor Configuration</h3>
-            <InfoTip content="Typical spray foam labor runs $30–$45/hr per tech. Most crews have 2–3 members depending on job size." />
-          </div>
+        <Card className="p-5 rounded-xl border border-default/20 bg-default/40 dark:bg-background/40 backdrop-blur-md shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]">
+          <h3 className="font-semibold text-base mb-3">Labor Configuration</h3>
           <div className="grid gap-3">
             <Input
-              type="number"
-              label="Crew Labor Rate ($/hr)"
-              value={pricing.laborRate ?? ""}
+              label="Crew Labor Rate"
+              value={String(settings.laborRate ?? "")}
               onChange={(e) => handleChange("laborRate", +e.target.value)}
-              variant="bordered"
-              min={0}
+              startContent={<span className="text-foreground/70 font-medium">$</span>}
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
+
             <Input
-              type="number"
               label="Average Crew Size"
-              value={pricing.crewSize ?? ""}
+              value={String(settings.crewSize ?? "")}
               onChange={(e) => handleChange("crewSize", +e.target.value)}
-              variant="bordered"
               min={1}
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
           </div>
         </Card>
 
         {/* === PRODUCTIVITY === */}
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
+        <Card className="p-5 rounded-xl border border-default/20 bg-default/40 dark:bg-background/40 backdrop-blur-md shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-base">Crew Productivity</h3>
-            <InfoTip content="Estimate how many board feet your crew can spray per hour. Wide-open spaces like attics or warehouses allow higher rates; tight areas reduce output." />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-foreground/60">Auto</span>
+              <Switch
+                size="sm"
+                isSelected={settings.autoProductivity}
+                onChange={(e) => handleChange("autoProductivity", e.target.checked)}
+                color="primary"
+                className="scale-90"
+              />
+            </div>
           </div>
+
           <div className="grid gap-3">
             <Input
-              type="number"
-              label="Wide-Open (bdft/hr)"
-              value={pricing.prodWideOpen ?? ""}
-              onChange={(e) => handleChange("prodWideOpen", +e.target.value)}
-              variant="bordered"
-              min={0}
-            />
-            <Input
-              type="number"
               label="Typical (bdft/hr)"
-              value={pricing.prodTypical ?? ""}
+              value={String(settings.prodTypical ?? "")}
               onChange={(e) => handleChange("prodTypical", +e.target.value)}
-              variant="bordered"
-              min={0}
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
+
             <Input
-              type="number"
+              label="Wide-Open (bdft/hr)"
+              value={String(
+                settings.autoProductivity
+                  ? Math.round((settings.prodTypical || 0) * 1.4)
+                  : settings.prodWideOpen ?? ""
+              )}
+              onChange={(e) => handleChange("prodWideOpen", +e.target.value)}
+              isDisabled={!!settings.autoProductivity}
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
+            />
+
+            <Input
               label="Tight (bdft/hr)"
-              value={pricing.prodTight ?? ""}
+              value={String(
+                settings.autoProductivity
+                  ? Math.round((settings.prodTypical || 0) * 0.7)
+                  : settings.prodTight ?? ""
+              )}
               onChange={(e) => handleChange("prodTight", +e.target.value)}
-              variant="bordered"
-              min={0}
+              isDisabled={!!settings.autoProductivity}
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
           </div>
         </Card>
 
         {/* === MATERIAL CONFIG === */}
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="font-semibold text-base">Material Configuration</h3>
-            <InfoTip content="Set your average cost per board foot for open-cell (OC) and closed-cell (CC) foam. These numbers are used in job cost calculations." />
-          </div>
+        <Card className="p-5 rounded-xl border border-default/20 bg-default/40 dark:bg-background/40 backdrop-blur-md shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]">
+          <h3 className="font-semibold text-base mb-3">Material Configuration</h3>
           <div className="grid gap-3">
             <Input
-              type="number"
               label="Open-Cell Cost ($/bdft)"
-              value={pricing.materialOC ?? ""}
+              value={String(settings.materialOC ?? "")}
               onChange={(e) => handleChange("materialOC", +e.target.value)}
-              variant="bordered"
-              min={0}
               step="0.01"
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
+
             <Input
-              type="number"
               label="Closed-Cell Cost ($/bdft)"
-              value={pricing.materialCC ?? ""}
+              value={String(settings.materialCC ?? "")}
               onChange={(e) => handleChange("materialCC", +e.target.value)}
-              variant="bordered"
-              min={0.0}
               step="0.01"
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
+
             <Input
-              type="number"
-              label="Material Markup (%)"
-              value={pricing.materialMarkup ?? ""}
+              label="Material Markup"
+              value={String(settings.materialMarkup ?? "")}
               onChange={(e) => handleChange("materialMarkup", +e.target.value)}
-              variant="bordered"
-              min={0}
+              step="0.01"
+              endContent={<span className="text-foreground/70 font-medium">%</span>}
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
           </div>
         </Card>
 
         {/* === OVERHEAD & PROFIT === */}
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="font-semibold text-base">Overhead & Profit</h3>
-            <InfoTip content="Overhead typically runs 10–15%. Profit margins range from 15–25% for residential, 10–20% for commercial work." />
-          </div>
+        <Card className="p-5 rounded-xl border border-default/20 bg-default/40 dark:bg-background/40 backdrop-blur-md shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]">
+          <h3 className="font-semibold text-base mb-3">Overhead & Profit</h3>
           <div className="grid gap-3">
             <Input
-              type="number"
-              label="Overhead (%)"
-              value={pricing.overhead ?? ""}
+              label="Overhead"
+              value={String(settings.overhead ?? "")}
               onChange={(e) => handleChange("overhead", +e.target.value)}
-              variant="bordered"
-              min={0}
+              endContent={<span className="text-foreground/70 font-medium">%</span>}
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
+
             <Input
-              type="number"
-              label="Profit Margin (%)"
-              value={pricing.profitMargin ?? ""}
+              label="Profit Margin"
+              value={String(settings.profitMargin ?? "")}
               onChange={(e) => handleChange("profitMargin", +e.target.value)}
-              variant="bordered"
-              min={0}
+              endContent={<span className="text-foreground/70 font-medium">%</span>}
+              classNames={{
+                inputWrapper: [
+                  "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                  "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                  "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+                ].join(" "),
+                label: "text-default-700 dark:text-default-700 font-normal",
+                input: "text-foreground",
+              }}
             />
           </div>
         </Card>
 
         {/* === DEFAULTS === */}
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="font-semibold text-base">Defaults & Surcharges</h3>
-            <InfoTip content="Mobilization fees cover setup, travel, and prep time. Fuel rates will be configured in the Advanced Configurator." />
-          </div>
-          <div className="grid gap-3">
-            <Input
-              type="number"
-              label="Mobilization Fee ($)"
-              value={pricing.mobilizationFee ?? ""}
-              onChange={(e) => handleChange("mobilizationFee", +e.target.value)}
-              variant="bordered"
-              min={0}
-            />
-          </div>
+        <Card className="p-5 rounded-xl border border-default/20 bg-default/40 dark:bg-background/40 backdrop-blur-md shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]">
+          <h3 className="font-semibold text-base mb-3">Defaults & Surcharges</h3>
+          <Input
+            label="Mobilization Fee"
+            value={String(settings.mobilizationFee ?? "")}
+            onChange={(e) => handleChange("mobilizationFee", +e.target.value)}
+            startContent={<span className="text-foreground/70 font-medium">$</span>}
+            classNames={{
+              inputWrapper: [
+                "bg-default/70 dark:bg-background/40 backdrop-blur-md",
+                "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300 rounded-lg",
+              ].join(" "),
+              label: "text-default-700 dark:text-default-700 font-normal",
+              input: "text-foreground",
+            }}
+          />
         </Card>
       </div>
 
-      {/* === RIGHT COLUMN: REAL-WORLD PREVIEW === */}
-      <div>
-        <Card className="p-4 h-full">
+      {/* RIGHT COLUMN — PREVIEW */}
+      <div className="order-last sm:order-last">
+        <Card
+          className={[
+            "p-5 rounded-xl",
+            "bg-default/40 dark:bg-background/40 backdrop-blur-md",
+            "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+            "hover:shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition-all duration-300",
+          ].join(" ")}
+        >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Real-World Preview</h3>
-            {/* OC | CC Toggle */}
+            <h3 className="font-semibold text-base sm:text-lg text-default-700 dark:text-default-700">
+              Real-World Preview
+            </h3>
             <div className="flex items-center gap-2">
               <span
-                className={`text-xs ${
-                  materialType === "OC" ? "text-primary font-semibold" : "text-foreground/50"
-                }`}
+                className={`text-xs ${materialType === "OC"
+                    ? "text-primary font-semibold"
+                    : "text-foreground/50"
+                  }`}
               >
                 OC
               </span>
@@ -240,13 +346,13 @@ export default function PricingSettings({ pricing, setPricing }: PricingSettings
                 isSelected={materialType === "CC"}
                 onChange={(e) => setMaterialType(e.target.checked ? "CC" : "OC")}
                 color="primary"
-                aria-label="Toggle Material Type"
                 className="scale-90"
               />
               <span
-                className={`text-xs ${
-                  materialType === "CC" ? "text-primary font-semibold" : "text-foreground/50"
-                }`}
+                className={`text-xs ${materialType === "CC"
+                    ? "text-primary font-semibold"
+                    : "text-foreground/50"
+                  }`}
               >
                 CC
               </span>
@@ -254,59 +360,88 @@ export default function PricingSettings({ pricing, setPricing }: PricingSettings
           </div>
 
           <Tabs
-            selectedKey={condition}
-            onSelectionChange={(key) => setCondition(key as "wide" | "typical" | "tight")}
+            aria-label="Settings Tabs"
+            color="secondary"
             variant="solid"
-            color="default"
-            
+            classNames={{
+              tabList: [
+                // remove border, add soft background & shadow
+                "bg-default/30 dark:bg-background/30 backdrop-blur-sm",
+                "shadow-sm dark:shadow-md",
+                "rounded-xl p-1",
+                "transition-all duration-300",
+              ].join(" "),
+              tabContent: [
+                "text-[15px] font-normal transition-colors",
+                "text-foreground dark:text-foreground",
+              ].join(" "),
+            }}
           >
             {["wide", "typical", "tight"].map((key) => (
               <Tab key={key} title={conditionLabel(key)}>
-                <Card>
-                  <CardBody className="space-y-4 text-[15px]">
+                <Card
+                  className={[
+                    "rounded-xl bg-default/40 dark:bg-background/40 backdrop-blur-md",
+                    "shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]",
+                    "p-4 transition-all duration-300",
+                  ].join(" ")}
+                >
+                  <CardBody className="space-y-4 text-sm sm:text-[15px]">
                     <p>
-                      <span className="font-medium text-foreground/80">Material Type:</span>{" "}
+                      <span className="font-medium text-foreground/80">
+                        Material Type:
+                      </span>{" "}
                       {materialType === "OC" ? "Open-Cell" : "Closed-Cell"}
                     </p>
                     <p>
-                      <span className="font-medium text-foreground/80">Job Size:</span> 1,000 bdft
+                      <span className="font-medium text-foreground/80">Job Size:</span>{" "}
+                      1,000 bdft
                     </p>
                     <p>
-                      <span className="font-medium text-foreground/80">Productivity:</span> {productivity} bdft/hr
+                      <span className="font-medium text-foreground/80">
+                        Productivity:
+                      </span>{" "}
+                      {productivity} bdft/hr
                     </p>
                     <p>
-                      <span className="font-medium text-foreground/80">Estimated Spray Time:</span>{" "}
+                      <span className="font-medium text-foreground/80">
+                        Estimated Spray Time:
+                      </span>{" "}
                       {laborHours.toFixed(1)} hrs
                     </p>
                     <p>
-                      <span className="font-medium text-foreground/80">Crew Labor Cost:</span> ${laborCost.toFixed(2)}
+                      <span className="font-medium text-foreground/80">
+                        Crew Labor Cost:
+                      </span>{" "}
+                      ${laborCost.toFixed(2)}
                     </p>
                     <p>
-                      <span className="font-medium text-foreground/80">Material Cost (with markup):</span>{" "}
+                      <span className="font-medium text-foreground/80">
+                        Material Cost (with markup):
+                      </span>{" "}
                       ${markedUpMaterial.toFixed(2)}
                     </p>
                     <p>
-                      <span className="font-medium text-foreground/80">Overhead & Margin:</span>{" "}
+                      <span className="font-medium text-foreground/80">
+                        Overhead & Margin:
+                      </span>{" "}
                       {overhead}% / {profitMargin}%
                     </p>
-
                     <hr className="border-default/20 my-4" />
-
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-[16px]">Estimated Sell Price</span>
-                      <span className="font-bold text-primary text-xl tracking-wide">
+                    <div
+                      className={[
+                        "mt-4 rounded-lg bg-default/40 dark:bg-background/40 backdrop-blur-md",
+                        "p-4 border border-default/30 flex flex-col sm:flex-row sm:items-center sm:justify-between",
+                        "shadow-[0_3px_8px_rgba(0,0,0,0.1)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.25)]",
+                      ].join(" ")}
+                    >
+                      <span className="text-sm sm:text-base font-semibold text-foreground/80 uppercase tracking-wide">
+                        Estimated Sell Price
+                      </span>
+                      <span className="text-xl sm:text-xl font-semibold text-foreground/80 tracking-tight mt-2 sm:mt-0">
                         ${isNaN(Number(estimatedSell)) ? "0.00" : estimatedSell}
                       </span>
                     </div>
-
-                    <p className="text-xs text-foreground/60 mt-2">
-                      Based on your defaults, a 1,000 bdft{" "}
-                      <span className="text-primary font-medium">
-                        {materialType === "OC" ? "open-cell" : "closed-cell"}
-                      </span>{" "}
-                      job under {conditionLabel(condition).toLowerCase()} conditions would sell for approximately{" "}
-                      <span className="text-primary font-medium">${estimatedSell}</span>.
-                    </p>
                   </CardBody>
                 </Card>
               </Tab>
@@ -314,6 +449,7 @@ export default function PricingSettings({ pricing, setPricing }: PricingSettings
           </Tabs>
         </Card>
       </div>
+
     </div>
   );
 }
