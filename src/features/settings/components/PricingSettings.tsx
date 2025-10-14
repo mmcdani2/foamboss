@@ -4,9 +4,11 @@ import {
   Switch,
 } from "@heroui/react";
 import InfoTip from "@/components/ui/InfoTip";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useSettingsStore } from "@/state/settingsStore";
 import PricingPreview from "./PricingPreview";
+import { calculatePreview } from "@/lib/calculator";
+
 
 export default function PricingSettings() {
   const { settings, updateSettings } = useSettingsStore();
@@ -33,53 +35,18 @@ export default function PricingSettings() {
   };
 
   // === Derived Calculations (Reactive) ===
-  const {
-    productivity,
-    markedUpMaterial,
-    laborHours,
-    laborCost,
-    estimatedSell,
-    overhead,
-    profitMargin,
-  } = useMemo(() => {
-    const exampleBoardFeet = 1000;
-    const ocCost = settings.materialOC ?? 0.45;
-    const ccCost = settings.materialCC ?? 1.0;
-    const materialCostPerBdft = materialType === "OC" ? ocCost : ccCost;
+  // === Derived Calculations (Shared Logic) ===
+const preview = calculatePreview(settings, materialType, condition);
+const {
+  productivity,
+  markedUpMaterial,
+  laborHours,
+  laborCost,
+  estimatedSell,
+  overhead,
+  profitMargin,
+} = preview;
 
-    const materialMarkup = settings.materialMarkup ?? 15;
-    const mobilizationFee = settings.mobilizationFee ?? 50;
-    const overhead = settings.overhead ?? 10;
-    const profitMargin = settings.profitMargin ?? 20;
-    const laborRate = settings.laborRate ?? 35;
-    const crewSize = settings.crewSize ?? 2;
-
-    const prodTypical = settings.prodTypical ?? 900;
-    const prodWide = settings.autoProductivity ? Math.round(prodTypical * 1.4) : settings.prodWideOpen ?? 1200;
-    const prodTight = settings.autoProductivity ? Math.round(prodTypical * 0.7) : settings.prodTight ?? 600;
-
-    const productivity =
-      condition === "wide" ? prodWide : condition === "typical" ? prodTypical : prodTight;
-
-    const rawMaterialCost = materialCostPerBdft * exampleBoardFeet;
-    const markedUpMaterial = rawMaterialCost * (1 + materialMarkup / 100);
-    const laborHours = exampleBoardFeet / productivity;
-    const laborCost = laborHours * laborRate * crewSize;
-    const jobCost = laborCost + markedUpMaterial + mobilizationFee;
-    const overheadMult = 1 + overhead / 100;
-    const profitMult = 1 + profitMargin / 100;
-    const estimatedSell = (jobCost * overheadMult * profitMult).toFixed(2);
-
-    return {
-      productivity,
-      markedUpMaterial,
-      laborHours,
-      laborCost,
-      estimatedSell,
-      overhead,
-      profitMargin,
-    };
-  }, [settings, materialType, condition]);
 
   const conditionLabel = (key: string) =>
     key === "wide" ? "Wide-Open" : key === "typical" ? "Typical" : "Tight";

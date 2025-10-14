@@ -12,7 +12,7 @@ interface PricingPreviewProps {
   markedUpMaterial: number;
   overhead: number;
   profitMargin: number;
-  estimatedSell: string;
+  estimatedSell: number; 
 }
 
 export default function PricingPreview({

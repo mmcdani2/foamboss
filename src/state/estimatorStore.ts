@@ -7,11 +7,11 @@ export interface Assembly {
   id: string;
   name: string;
   type: string;
-  foamType: string;
+  foamType: "Open-Cell" | "Closed-Cell";
   thickness: number;
   area: number;
-  height: number;
-  pitch: number;
+  height?: number;
+  pitch?: number;
   margin: number;
   laborRate: number;
   mobilization: number;
@@ -19,6 +19,7 @@ export interface Assembly {
   materialCost: number;
   laborCost: number;
   totalCost: number;
+  materialName?: string; 
 }
 
 export interface Estimate {
