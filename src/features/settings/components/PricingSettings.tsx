@@ -7,9 +7,9 @@ import {
   Tabs,
   Tab,
 } from "@heroui/react";
-import InfoTip from "@/components/common/InfoTip";
+import InfoTip from "@/components/ui/InfoTip";
 import { useMemo, useState } from "react";
-import { useSettingsStore } from "@/features/settings/store/settingsStore";
+import { useSettingsStore } from "@/state/settingsStore";
 
 export default function PricingSettings() {
   const { settings, updateSettings } = useSettingsStore();

@@ -7,8 +7,8 @@ import {
   Chip,
 } from "@heroui/react";
 import { Plus } from "lucide-react";
-import { useEstimatorStore } from "@/features/estimator/store/estimatorStore";
-import AddAssemblyModal from "@/features/assemblies/AddAssemblyModal";
+import { useEstimatorStore } from "@/state/estimatorStore";
+import AddAssemblyModal from "@/features/estimator/components/AddAssemblyModal";
 import { useState } from "react";
 
 interface AssemblyListCardProps {

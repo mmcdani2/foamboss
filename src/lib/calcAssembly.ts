@@ -1,6 +1,6 @@
-import { Assembly } from "@/features/estimator/store/estimatorStore";
-import { Settings } from "@/features/settings/store/settingsStore";
-import { Material } from "@/features/materials/store/materialStore";
+import { Assembly } from "@/state/estimatorStore";
+import { Settings } from "@/state/settingsStore";
+import { Material } from "@/state/materialStore";
 
 /**
  * Calculates assembly costs using current settings and materials.

@@ -23,7 +23,7 @@ import {
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { useMaterialStore } from "@/features/materials/store/materialStore";
+import { useMaterialStore } from "@/state/materialStore";
 
 export default function Material() {
   const { materials, addMaterial, updateMaterial, removeMaterial } =

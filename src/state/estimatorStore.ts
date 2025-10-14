@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useSettingsStore } from "@/features/settings/store/settingsStore";
+import { useSettingsStore } from "@/state/settingsStore";
 
 
 export interface Assembly {

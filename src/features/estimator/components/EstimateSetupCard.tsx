@@ -9,7 +9,7 @@ import {
   SelectItem,
   Button,
 } from "@heroui/react";
-import { useEstimatorStore } from "@/features/estimator/store/estimatorStore";
+import { useEstimatorStore } from "@/state/estimatorStore";
 
 interface EstimateSetupCardProps {
   onNext: () => void;

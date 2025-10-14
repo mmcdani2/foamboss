@@ -14,7 +14,7 @@ import {
   useSettingsStore,
   PayType,
   UserSetting,
-} from "@/features/settings/store/settingsStore";
+} from "@/state/settingsStore";
 
 interface AddUserModalProps {
   isOpen: boolean;

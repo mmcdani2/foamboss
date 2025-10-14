@@ -10,10 +10,10 @@ import {
   Button,
 } from "@heroui/react";
 import { useState, useEffect } from "react";
-import { useEstimatorStore } from "@/features/estimator/store/estimatorStore";
-import { useMaterialStore } from "@/features/materials/store/materialStore";
-import { useSettingsStore } from "@/features/settings/store/settingsStore";
-import { calculateAssemblyValues } from "@/features/estimator/utils/calcAssembly";
+import { useEstimatorStore } from "@/state/estimatorStore";
+import { useMaterialStore } from "@/state/materialStore";
+import { useSettingsStore } from "@/state/settingsStore";
+import { calculateAssemblyValues } from "@/lib/calcAssembly";
 
 interface AddAssemblyModalProps {
   isOpen: boolean;

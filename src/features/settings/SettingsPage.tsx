@@ -7,9 +7,9 @@ import {
   Button,
 } from "@heroui/react";
 import { useEffect, useState } from "react";
-import { useHydratedSettings } from "@/features/settings/store/settingsStore";
-import CompanySettings from "./components/Companysettings";
-import PricingSettings from "./components/Pricingsettings";
+import { useHydratedSettings } from "@/state/settingsStore";
+import CompanySettings from "./components/CompanySettings";
+import PricingSettings from "./components/PricingSettings";
 import TemplateSettings from "./components/TemplateSettings";
 import UserSettings from "./components/UserSettings";
 import IntegrationSettings from "./components/IntegrationSettings";

@@ -4,8 +4,8 @@ import {
 } from "@heroui/react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEstimatorStore } from "@/features/estimator/store/estimatorStore";
-import AddAssemblyModal from "@/features/assemblies/AddAssemblyModal";
+import { useEstimatorStore } from "@/state/estimatorStore";
+import AddAssemblyModal from "@/features/estimator/components/AddAssemblyModal";
 import EstimateSetupCard from "./components/EstimateSetupCard";
 import AssemblyListCard from "./components/AssemblyListCard";
 import SummaryCard from "./components/SummaryCard";

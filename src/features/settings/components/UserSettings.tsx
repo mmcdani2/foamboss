@@ -25,8 +25,8 @@ import {
 } from "@heroui/react";
 import { Key, SortDescriptor } from "@react-types/shared";
 import { Eye, Edit3, Trash2 } from "lucide-react";
-import { useSettingsStore } from "@/features/settings/store/settingsStore";
-import type { UserSetting } from "@/features/settings/store/settingsStore";
+import { useSettingsStore } from "@/state/settingsStore";
+import type { UserSetting } from "@/state/settingsStore";
 import AddUserModal from "./AddUserModal";
 
 // ---------- Types ----------
