@@ -1,15 +1,24 @@
 // src/lib/calculator.ts
-
 import { DEFAULTS } from "./constants";
 import { calculateBoardFeet, roundTo } from "./utils";
 
 /* ---------- Types ---------- */
 
+export interface CalculatorConfig {
+  materialCostPerBdFt: number;
+  crewRatePerHour: number;
+  productionRateBdFtPerHour: number;
+  mobilizationFee: number;
+  fuelSurchargePerMile: number;
+  defaultMargin: number;
+}
+
 export interface AssemblyInput {
   name: string;
   area: number;        // sqft or linear ft
   thickness: number;   // inches
-  isLinear?: boolean;  // determines how area is interpreted
+  isLinear?: boolean;
+  pitch?: number;      // roof pitch, e.g. 6 means 6/12 (rise/run)
   materialCostPerBdFt?: number;
 }
 
@@ -27,6 +36,7 @@ export interface JobInput {
   mobilizationFee?: number;
   margin?: number;
   fuelRatePerMile?: number;
+  extraCosts?: number; // optional line item costs (insurance, misc.)
 }
 
 export interface JobResult {
@@ -43,7 +53,7 @@ export interface JobResult {
 
 export const calculateAssembly = (
   assembly: AssemblyInput,
-  config = DEFAULTS
+  config: CalculatorConfig = DEFAULTS
 ): AssemblyResult => {
   const {
     area,
@@ -52,10 +62,13 @@ export const calculateAssembly = (
     materialCostPerBdFt = config.materialCostPerBdFt,
   } = assembly;
 
+  // board feet = (area × thickness) / 12 (or modified if linear)
   const boardFeet = calculateBoardFeet(area, thickness, isLinear);
+
   const materialCost = boardFeet * materialCostPerBdFt;
 
-  const laborCostPerBdFt = config.crewRatePerHour / config.productionRateBdFtPerHour;
+  const laborCostPerBdFt =
+    config.crewRatePerHour / config.productionRateBdFtPerHour;
   const laborCost = boardFeet * laborCostPerBdFt;
 
   const totalCostBeforeMargin = materialCost + laborCost;
@@ -74,9 +87,11 @@ export const calculateAssembly = (
 
 export const calculateJobTotals = (
   job: JobInput,
-  config = DEFAULTS
+  config: CalculatorConfig = DEFAULTS
 ): JobResult => {
-  const assemblies = job.assemblies.map((a) => calculateAssembly(a, config));
+  const assemblies = job.assemblies.map((a) =>
+    calculateAssembly(a, config)
+  );
 
   const subtotal = assemblies.reduce(
     (sum, a) => sum + a.totalCostBeforeMargin,
@@ -86,9 +101,12 @@ export const calculateJobTotals = (
   const mobilizationFee = job.mobilizationFee ?? config.mobilizationFee;
   const fuelRatePerMile = job.fuelRatePerMile ?? config.fuelSurchargePerMile;
   const miles = job.miles ?? 0;
-  const fuelSurcharge = miles * fuelRatePerMile;
+  const fuelSurcharge =
+    miles > 0 && fuelRatePerMile > 0 ? miles * fuelRatePerMile : 0;
 
-  const preMarginTotal = subtotal + mobilizationFee + fuelSurcharge;
+  const extraCosts = job.extraCosts ?? 0;
+
+  const preMarginTotal = subtotal + mobilizationFee + fuelSurcharge + extraCosts;
   const margin = job.margin ?? config.defaultMargin;
   const grandTotal = preMarginTotal / (1 - margin);
   const marginAmount = grandTotal - preMarginTotal;
