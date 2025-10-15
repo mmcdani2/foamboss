@@ -141,8 +141,12 @@ export const calculatePreview = (
   condition: "wide" | "typical" | "tight" = "typical"
 ) => {
   const exampleBoardFeet = DEFAULTS.exampleBoardFeet;
+
+  // ✅ Use store values first, then constants as fallback
   const materialCostPerBdFt =
-    MATERIAL_COSTS[materialType] ?? settings.materialCostPerBdFt ?? DEFAULTS.materialCostPerBdFt;
+    materialType === "OC"
+      ? settings.materialOC ?? MATERIAL_COSTS.OC
+      : settings.materialCC ?? MATERIAL_COSTS.CC;
 
   // Productivity multipliers (auto or manual)
   const baseProd = settings.prodTypical ?? DEFAULTS.productionRateBdFtPerHour;
@@ -182,4 +186,5 @@ export const calculatePreview = (
     profitMargin,
   };
 };
+
 

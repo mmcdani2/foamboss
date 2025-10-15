@@ -5,6 +5,8 @@ import { Card, CardBody, Switch, Tabs, Tab } from "@heroui/react";
 interface PricingPreviewProps {
   materialType: "OC" | "CC";
   setMaterialType: (type: "OC" | "CC") => void;
+  condition: "wide" | "typical" | "tight";
+  setCondition: (c: "wide" | "typical" | "tight") => void;
   conditionLabel: (key: string) => string;
   productivity: number;
   laborHours: number;
@@ -12,12 +14,14 @@ interface PricingPreviewProps {
   markedUpMaterial: number;
   overhead: number;
   profitMargin: number;
-  estimatedSell: number; 
+  estimatedSell: string | number;
 }
 
 export default function PricingPreview({
   materialType,
   setMaterialType,
+  condition,
+  setCondition,
   conditionLabel,
   productivity,
   laborHours,
@@ -44,11 +48,10 @@ export default function PricingPreview({
 
           <div className="flex items-center gap-2">
             <span
-              className={`text-xs ${
-                materialType === "OC"
+              className={`text-xs ${materialType === "OC"
                   ? "text-primary font-semibold"
                   : "text-foreground/50"
-              }`}
+                }`}
             >
               OC
             </span>
@@ -64,11 +67,10 @@ export default function PricingPreview({
             />
 
             <span
-              className={`text-xs ${
-                materialType === "CC"
+              className={`text-xs ${materialType === "CC"
                   ? "text-primary font-semibold"
                   : "text-foreground/50"
-              }`}
+                }`}
             >
               CC
             </span>
@@ -79,6 +81,8 @@ export default function PricingPreview({
           aria-label="Settings Tabs"
           color="secondary"
           variant="solid"
+          selectedKey={condition} 
+          onSelectionChange={(key) => setCondition(key as "wide" | "typical" | "tight")}
           classNames={{
             tabList: [
               "bg-default/30 dark:bg-background/30 backdrop-blur-sm",

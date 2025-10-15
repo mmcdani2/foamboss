@@ -79,22 +79,26 @@ export const useSettingsStore = create<SettingsState>()(
       },
 
       updateSettings: (data) => {
-        const current = get().settings;
-        const merged = { ...current, ...data };
+        set((state) => {
+          const merged = {
+            ...state.settings, // always copy
+            ...data,
+          };
 
-        // Apply auto productivity logic only if enabled
-        if (
-          merged.autoProductivity &&
-          data.prodTypical &&
-          !data.prodWideOpen &&
-          !data.prodTight
-        ) {
-          merged.prodWideOpen = Math.round(data.prodTypical * 1.4);
-          merged.prodTight = Math.round(data.prodTypical * 0.7);
-        }
+          // Apply auto productivity logic only if enabled
+          if (
+            merged.autoProductivity &&
+            data.prodTypical &&
+            !data.prodWideOpen &&
+            !data.prodTight
+          ) {
+            merged.prodWideOpen = Math.round(data.prodTypical * 1.4);
+            merged.prodTight = Math.round(data.prodTypical * 0.7);
+          }
 
-        set({ settings: merged });
-        console.log("✅ Settings updated:", merged);
+          console.log("✅ Settings updated:", merged);
+          return { settings: { ...merged } }; // <-- ensure new reference returned
+        });
       },
 
       addUser: (user) => {
@@ -140,12 +144,12 @@ export const useSettingsStore = create<SettingsState>()(
           prodWideOpen: 1260,
           prodTight: 630,
           autoProductivity: true,
-          crewSize: 3, 
-          materialOC: 0.45, 
-          materialCC: 1.0, 
-          materialMarkup: 15, 
-          overhead: 10, 
-          profitMargin: 20, 
+          crewSize: 3,
+          materialOC: 0.45,
+          materialCC: 1.0,
+          materialMarkup: 15,
+          overhead: 10,
+          profitMargin: 20,
           users: [],
         };
 

@@ -4,7 +4,7 @@ import {
   Switch,
 } from "@heroui/react";
 import InfoTip from "@/components/ui/InfoTip";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSettingsStore } from "@/state/settingsStore";
 import PricingPreview from "./PricingPreview";
 import { calculatePreview } from "@/lib/calculator";
@@ -18,7 +18,7 @@ export default function PricingSettings() {
   const [condition, setCondition] = useState<"wide" | "typical" | "tight">("typical");
 
   // === Handler ===
-  const handleChange = (key: string, value: number | string | boolean) => {
+  const handleChange = (key: string, value: any) => {
     const updated: Record<string, any> = { [key]: value };
 
     // Auto productivity recalculation
@@ -36,16 +36,20 @@ export default function PricingSettings() {
 
   // === Derived Calculations (Reactive) ===
   // === Derived Calculations (Shared Logic) ===
-const preview = calculatePreview(settings, materialType, condition);
-const {
-  productivity,
-  markedUpMaterial,
-  laborHours,
-  laborCost,
-  estimatedSell,
-  overhead,
-  profitMargin,
-} = preview;
+  const preview = useMemo(
+    () => calculatePreview(settings, materialType, condition),
+    [settings, materialType, condition]
+  );
+
+  const {
+    productivity,
+    markedUpMaterial,
+    laborHours,
+    laborCost,
+    estimatedSell,
+    overhead,
+    profitMargin,
+  } = preview;
 
 
   const conditionLabel = (key: string) =>
@@ -172,11 +176,18 @@ const {
         <Card className="p-5 rounded-xl border border-default/20 bg-default/40 dark:bg-background/40 backdrop-blur-md shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]">
           <h3 className="font-semibold text-base mb-3">Material Configuration</h3>
           <div className="grid gap-3">
+
+            {/* Open-Cell Cost */}
             <Input
               label="Open-Cell Cost ($/bdft)"
-              value={String(settings.materialOC ?? "")}
-              onChange={(e) => handleChange("materialOC", +e.target.value)}
+              type="number"
+              value={settings.materialOC?.toString() ?? ""}
+              onChange={(e) => handleChange("materialOC", e.target.value)} // raw string
+              onBlur={(e) => handleChange("materialOC", parseFloat(e.target.value) || 0)} // parse on blur
               step="0.01"
+              min="0"
+              inputMode="decimal"
+              pattern="[0-9]*[.,]?[0-9]*"
               classNames={{
                 inputWrapper: [
                   "bg-default/70 dark:bg-background/40 backdrop-blur-md",
@@ -188,11 +199,17 @@ const {
               }}
             />
 
+            {/* Closed-Cell Cost */}
             <Input
               label="Closed-Cell Cost ($/bdft)"
-              value={String(settings.materialCC ?? "")}
-              onChange={(e) => handleChange("materialCC", +e.target.value)}
+              type="number"
+              value={settings.materialCC?.toString() ?? ""}
+              onChange={(e) => handleChange("materialCC", e.target.value)}
+              onBlur={(e) => handleChange("materialCC", parseFloat(e.target.value) || 0)}
               step="0.01"
+              min="0"
+              inputMode="decimal"
+              pattern="[0-9]*[.,]?[0-9]*"
               classNames={{
                 inputWrapper: [
                   "bg-default/70 dark:bg-background/40 backdrop-blur-md",
@@ -204,6 +221,7 @@ const {
               }}
             />
 
+            {/* Material Markup */}
             <Input
               label="Material Markup"
               value={String(settings.materialMarkup ?? "")}
@@ -222,7 +240,6 @@ const {
             />
           </div>
         </Card>
-
         {/* === OVERHEAD & PROFIT === */}
         <Card className="p-5 rounded-xl border border-default/20 bg-default/40 dark:bg-background/40 backdrop-blur-md shadow-[0_3px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_3px_10px_rgba(0,0,0,0.4)]">
           <h3 className="font-semibold text-base mb-3">Overhead & Profit</h3>
@@ -281,11 +298,13 @@ const {
           />
         </Card>
       </div>
-      
+
       {/*==== Right Side Panel ====*/}
       <PricingPreview
         materialType={materialType}
         setMaterialType={setMaterialType}
+        condition={condition}        // ✅
+        setCondition={setCondition}  // ✅
         conditionLabel={conditionLabel}
         productivity={productivity}
         laborHours={laborHours}
@@ -295,7 +314,6 @@ const {
         profitMargin={profitMargin}
         estimatedSell={estimatedSell}
       />
-
     </div>
   );
 }
