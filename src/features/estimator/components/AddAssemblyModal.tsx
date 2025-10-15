@@ -52,11 +52,19 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
       return;
     }
 
+    // find material
     const mat = materials.find((m) => m.name === selectedMaterial);
     const costPerBdFt = mat?.costPerBdFt ?? 0.067;
 
     // Determine effective area
     const areaToUse = type === "Wall" ? a * h : type === "Attic" ? a * p : a;
+
+    // 🔹 Productivity logic
+    const baseProd = settings.prodTypical ?? 900;
+    const prodWide = settings.autoProductivity ? baseProd * 1.4 : settings.prodWideOpen ?? 1200;
+    const prodTight = settings.autoProductivity ? baseProd * 0.7 : settings.prodTight ?? 600;
+    const productivity =
+      type === "Attic" ? prodTight : type === "Wall" ? baseProd : prodWide;
 
     const assemblyInput = {
       name: assemblyName || "Preview",
@@ -76,10 +84,9 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
       profitMargin: settings.profitMargin ?? settings.marginPercent ?? 20,
       defaultMargin: (settings.marginPercent ?? 20) / 100,
       fuelSurchargePerMile: 0,
-      productionRateBdFtPerHour: settings.prodTypical ?? 900,
+      productionRateBdFtPerHour: productivity, 
       exampleBoardFeet: 1000,
     });
-
 
     setBoardFeet(result.boardFeet);
     setTotalCost(result.totalCostWithMargin);
@@ -113,6 +120,12 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
 
     const areaToUse = type === "Wall" ? a * h : type === "Attic" ? a * p : a;
 
+    const baseProd = settings.prodTypical ?? 900;
+    const prodWide = settings.autoProductivity ? baseProd * 1.4 : settings.prodWideOpen ?? 1200;
+    const prodTight = settings.autoProductivity ? baseProd * 0.7 : settings.prodTight ?? 600;
+    const productivity =
+      type === "Attic" ? prodTight : type === "Wall" ? baseProd : prodWide;
+
     const assemblyInput = {
       name: assemblyName,
       area: areaToUse,
@@ -131,10 +144,9 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
       profitMargin: settings.profitMargin ?? settings.marginPercent ?? 20,
       defaultMargin: settings.marginPercent ? settings.marginPercent / 100 : 0.2,
       fuelSurchargePerMile: 0,
-      productionRateBdFtPerHour: settings.prodTypical ?? 900,
+      productionRateBdFtPerHour: productivity,
       exampleBoardFeet: 1000,
     });
-
 
     addAssembly({
       id: crypto.randomUUID(),
@@ -149,10 +161,9 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
       margin: settings.marginPercent,
       laborRate: settings.laborRate,
       mobilization: mob,
-      totalCost: result.totalCostWithMargin, // ✅ Add this line
+      totalCost: result.totalCostWithMargin,
       ...result,
     });
-
 
     recalcTotals();
     onClose();
@@ -180,7 +191,6 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
       <ModalContent>
         <ModalHeader>Add New Assembly</ModalHeader>
         <ModalBody className="flex flex-col gap-4">
-          {/* Assembly Info */}
           <Input
             label="Assembly Name"
             value={assemblyName}
@@ -197,7 +207,6 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
             ))}
           </Select>
 
-          {/* Material Selector */}
           <Select
             label="Material"
             selectedKeys={[selectedMaterial]}
@@ -219,7 +228,6 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
             ))}
           </Select>
 
-          {/* Dimensional Inputs */}
           <Input
             label="Thickness (inches)"
             type="number"
@@ -270,7 +278,6 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
             />
           )}
 
-          {/* Cost Inputs */}
           <Input
             label="Mobilization Fee ($)"
             type="number"
@@ -278,7 +285,6 @@ export default function AddAssemblyModal({ isOpen, onClose }: AddAssemblyModalPr
             onChange={(e) => setMobilization(e.target.value)}
           />
 
-          {/* Summary */}
           <div className="flex justify-between text-sm text-default-600">
             <span>
               Board Feet:{" "}
