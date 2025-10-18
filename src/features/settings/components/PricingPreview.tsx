@@ -5,9 +5,11 @@ import { Card, CardBody, Switch, Tabs, Tab } from "@heroui/react";
 interface PricingPreviewProps {
   materialType: "OC" | "CC";
   setMaterialType: (type: "OC" | "CC") => void;
+
   condition: "wide" | "typical" | "tight";
   setCondition: (c: "wide" | "typical" | "tight") => void;
   conditionLabel: (key: string) => string;
+
   productivity: number;
   laborHours: number;
   laborCost: number;
@@ -31,6 +33,13 @@ export default function PricingPreview({
   profitMargin,
   estimatedSell,
 }: PricingPreviewProps) {
+  const formattedSell =
+    typeof estimatedSell === "number"
+      ? estimatedSell.toFixed(2)
+      : Number.isFinite(Number(estimatedSell))
+      ? Number(estimatedSell).toFixed(2)
+      : "0.00";
+
   return (
     <div className="order-last sm:order-last">
       <Card
@@ -48,29 +57,31 @@ export default function PricingPreview({
 
           <div className="flex items-center gap-2">
             <span
-              className={`text-xs ${materialType === "OC"
+              className={`text-xs ${
+                materialType === "OC"
                   ? "text-primary font-semibold"
                   : "text-foreground/50"
-                }`}
+              }`}
             >
               OC
             </span>
 
+            {/* Use boolean onValueChange for clarity */}
             <Switch
               size="sm"
               isSelected={materialType === "CC"}
-              onChange={(e) =>
-                setMaterialType(e.target.checked ? "CC" : "OC")
-              }
+              onValueChange={(v) => setMaterialType(v ? "CC" : "OC")}
               color="primary"
               className="scale-90"
+              aria-label="Toggle Open-Cell / Closed-Cell"
             />
 
             <span
-              className={`text-xs ${materialType === "CC"
+              className={`text-xs ${
+                materialType === "CC"
                   ? "text-primary font-semibold"
                   : "text-foreground/50"
-                }`}
+              }`}
             >
               CC
             </span>
@@ -81,8 +92,10 @@ export default function PricingPreview({
           aria-label="Settings Tabs"
           color="secondary"
           variant="solid"
-          selectedKey={condition} 
-          onSelectionChange={(key) => setCondition(key as "wide" | "typical" | "tight")}
+          selectedKey={condition}
+          onSelectionChange={(key) =>
+            setCondition(key as "wide" | "typical" | "tight")
+          }
           classNames={{
             tabList: [
               "bg-default/30 dark:bg-background/30 backdrop-blur-sm",
@@ -96,7 +109,7 @@ export default function PricingPreview({
             ].join(" "),
           }}
         >
-          {["wide", "typical", "tight"].map((key) => (
+          {(["wide", "typical", "tight"] as const).map((key) => (
             <Tab key={key} title={conditionLabel(key)}>
               <Card
                 className={[
@@ -168,7 +181,7 @@ export default function PricingPreview({
                       Estimated Sell Price
                     </span>
                     <span className="text-xl sm:text-xl font-semibold text-foreground/80 tracking-tight mt-2 sm:mt-0">
-                      ${isNaN(Number(estimatedSell)) ? "0.00" : estimatedSell}
+                      ${formattedSell}
                     </span>
                   </div>
                 </CardBody>

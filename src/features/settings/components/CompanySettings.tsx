@@ -1,35 +1,23 @@
 import { Input, Button, Card, CardBody } from "@heroui/react";
 import { Upload } from "lucide-react";
+import { useCompanySettings } from "@/state/useCompanySettings";
 
-interface CompanySettingsProps {
-  company: {
-    name: string;
-    address: string;
-    phone: string;
-    license: string;
-  };
-  setCompany: React.Dispatch<
-    React.SetStateAction<{
-      name: string;
-      address: string;
-      phone: string;
-      license: string;
-    }>
-  >;
-}
+export default function CompanySettings() {
+  const company = useCompanySettings((s) => s.company);
+const updateCompany = useCompanySettings((s) => s.updateCompany);
 
-export default function CompanySettings({ company, setCompany }: CompanySettingsProps) {
-  // --- Format phone number as user types ---
+  // Format phone number as user types and persist to store
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ""); // strip non-digits
+    let value = e.target.value.replace(/\D/g, "");
     if (value.length > 10) value = value.slice(0, 10);
     const formatted =
       value.length > 6
         ? `${value.slice(0, 3)}-${value.slice(3, 6)}-${value.slice(6)}`
         : value.length > 3
-          ? `${value.slice(0, 3)}-${value.slice(3)}`
-          : value;
-    setCompany({ ...company, phone: formatted });
+        ? `${value.slice(0, 3)}-${value.slice(3)}`
+        : value;
+
+    updateCompany({ phone: formatted });
   };
 
   return (
@@ -41,8 +29,8 @@ export default function CompanySettings({ company, setCompany }: CompanySettings
         <div className="grid sm:grid-cols-2 gap-6">
           <Input
             label="Company Name"
-            value={company.name}
-            onChange={(e) => setCompany({ ...company, name: e.target.value })}
+            value={company.companyName || ""}
+            onChange={(e) => updateCompany({ companyName: e.target.value })}
             classNames={{
               inputWrapper: [
                 "bg-default/70 dark:bg-background/40 backdrop-blur-md",
@@ -56,8 +44,8 @@ export default function CompanySettings({ company, setCompany }: CompanySettings
 
           <Input
             label="License #"
-            value={company.license}
-            onChange={(e) => setCompany({ ...company, license: e.target.value })}
+            value={company.licenseNumber || ""}
+            onChange={(e) => updateCompany({ licenseNumber: e.target.value })}
             classNames={{
               inputWrapper: [
                 "bg-default/70 dark:bg-background/40 backdrop-blur-md",
@@ -72,8 +60,8 @@ export default function CompanySettings({ company, setCompany }: CompanySettings
           <Input
             label="Address"
             className="sm:col-span-2"
-            value={company.address}
-            onChange={(e) => setCompany({ ...company, address: e.target.value })}
+            value={company.address || ""}
+            onChange={(e) => updateCompany({ address: e.target.value })}
             classNames={{
               inputWrapper: [
                 "bg-default/70 dark:bg-background/40 backdrop-blur-md",
@@ -88,7 +76,9 @@ export default function CompanySettings({ company, setCompany }: CompanySettings
           <div className="flex items-center gap-3 mt-1">
             <Input
               label="Phone"
-              value={company.phone}
+              type="tel"
+              inputMode="tel"
+              value={company.phone || ""}
               onChange={handlePhoneChange}
               classNames={{
                 inputWrapper: [
@@ -104,16 +94,17 @@ export default function CompanySettings({ company, setCompany }: CompanySettings
             <div className="flex items-center h-full">
               <Button
                 startContent={<Upload className="w-3.5 h-3.5" />}
+                aria-label="Upload company logo"
                 className="h-[50px] px-4 rounded-lrg
-      bg-secondary text-foreground font-regular
-      shadow-[0_3px_8px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)]
-      hover:opacity-90 transition-all duration-300"
+                  bg-secondary text-foreground font-regular
+                  shadow-[0_3px_8px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)]
+                  hover:opacity-90 transition-all duration-300"
+                // onPress={() => {/* later: upload and then updateCompany({ logoUrl }) */}}
               >
                 Upload Logo
               </Button>
             </div>
           </div>
-
         </div>
       </CardBody>
     </Card>

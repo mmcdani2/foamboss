@@ -1,190 +1,114 @@
 // src/lib/calculator.ts
+//
+// Primitive math utilities for spray foam estimating.
+// No framework/state/config awareness — pure functions only.
+//
 
-import { DEFAULTS, MATERIAL_COSTS, PRODUCTIVITY_MULTIPLIERS } from "./constants";
-import { roundTo, calculateBoardFeet } from "./utils";
+/** Convert thickness in inches to feet. */
+export const inchesToFeet = (inches: number): number => inches / 12;
 
-/* ---------- Types ---------- */
+/** Board feet from area in sqft and thickness in inches. */
+export const boardFeetFromSqft = (areaSqft: number, thicknessInches: number): number =>
+  areaSqft * inchesToFeet(thicknessInches);
 
-export interface AssemblyInput {
-  name: string;
-  area: number;        
-  thickness: number;   
-  isLinear?: boolean;  
-  materialType: "OC" | "CC";
-  condition?: "wide" | "typical" | "tight";
-}
-
-export interface AssemblyResult {
-  boardFeet: number;
-  materialCost: number;
-  laborCost: number;
-  totalCostBeforeMargin: number;
-  totalCostWithMargin: number;
-}
-
-export interface JobInput {
-  assemblies: AssemblyInput[];
-  miles?: number;
-  mobilizationFee?: number;
-  margin?: number;
-  fuelRatePerMile?: number;
-}
-
-export interface JobResult {
-  assemblies: AssemblyResult[];
-  subtotal: number;
-  fuelSurcharge: number;
-  mobilizationFee: number;
-  preMarginTotal: number;
-  marginAmount: number;
-  grandTotal: number;
-}
-
-/* ---------- Core Functions (To Be Implemented Next) ---------- */
-
-export const calculateAssembly = (
-  assembly: AssemblyInput,
-  config = DEFAULTS
-): AssemblyResult => {
-  const {
-    area,
-    thickness,
-    isLinear = false,
-    materialType,
-    condition = "typical",
-  } = assembly;
-
-  // 1️⃣ Determine material cost per board foot
-  const materialCostPerBdFt =
-    MATERIAL_COSTS[materialType] ?? config.materialCostPerBdFt;
-
-  // 2️⃣ Convert area + thickness → board feet
-  const boardFeet = calculateBoardFeet(area, thickness, isLinear);
-
-  // 3️⃣ Compute productivity rate for this condition
-  const baseProd = config.productionRateBdFtPerHour;
-  const productivity =
-    baseProd * (PRODUCTIVITY_MULTIPLIERS[condition] ?? 1);
-
-  // 4️⃣ Derive labor cost per board foot
-  const laborCostPerBdFt = config.laborRate / productivity;
-
-  // 5️⃣ Compute component costs
-  const materialCost = boardFeet * materialCostPerBdFt;
-  const laborCost = boardFeet * laborCostPerBdFt * config.crewSize;
-  const totalCostBeforeMargin = materialCost + laborCost;
-
-  // 6️⃣ Apply overhead and profit
-  const overheadMult = 1 + config.overhead / 100;
-  const profitMult = 1 + config.profitMargin / 100;
-  const totalCostWithMargin =
-    totalCostBeforeMargin * overheadMult * profitMult;
-
-  // 7️⃣ Return rounded results
-  return {
-    boardFeet: roundTo(boardFeet),
-    materialCost: roundTo(materialCost),
-    laborCost: roundTo(laborCost),
-    totalCostBeforeMargin: roundTo(totalCostBeforeMargin),
-    totalCostWithMargin: roundTo(totalCostWithMargin),
-  };
-};
-
-
-export const calculateJobTotals = (
-  job: JobInput,
-  config = DEFAULTS
-): JobResult => {
-  // 1️⃣ Calculate each assembly using the shared function
-  const assemblies = job.assemblies.map((a) => calculateAssembly(a, config));
-
-  // 2️⃣ Subtotal before extras
-  const subtotal = assemblies.reduce(
-    (sum, a) => sum + a.totalCostBeforeMargin,
-    0
-  );
-
-  // 3️⃣ Pull job-level overrides or use defaults
-  const mobilizationFee = job.mobilizationFee ?? config.mobilizationFee;
-  const fuelRatePerMile = job.fuelRatePerMile ?? config.fuelSurchargePerMile;
-  const miles = job.miles ?? 0;
-
-  // 4️⃣ Compute additional charges
-  const fuelSurcharge = miles * fuelRatePerMile;
-  const preMarginTotal = subtotal + mobilizationFee + fuelSurcharge;
-
-  // 5️⃣ Apply margin
-  const margin = job.margin ?? config.defaultMargin;
-  const grandTotal = preMarginTotal / (1 - margin);
-  const marginAmount = grandTotal - preMarginTotal;
-
-  // 6️⃣ Return final, rounded results
-  return {
-    assemblies,
-    subtotal: roundTo(subtotal),
-    fuelSurcharge: roundTo(fuelSurcharge),
-    mobilizationFee: roundTo(mobilizationFee),
-    preMarginTotal: roundTo(preMarginTotal),
-    marginAmount: roundTo(marginAmount),
-    grandTotal: roundTo(grandTotal),
-  };
-};
-
+/** Board feet for walls from linear feet, height (ft), thickness (in). */
+export const wallBoardFeet = (
+  linearFeet: number,
+  heightFeet: number,
+  thicknessInches: number
+): number => boardFeetFromSqft(linearFeet * heightFeet, thicknessInches);
 
 /**
- * Quick “preview” calculator for PricingSettings or demo screens.
- * Uses constants + settings to simulate a 1,000 bdft sample job.
+ * Pitch multiplier helper.
+ * - If you pass a common roof pitch like 4 (for 4/12), set `pitchIsRiseOver12=true`.
+ * - If you already have a multiplier (e.g., 1.15), set `pitchIsRiseOver12=false`.
  */
-export const calculatePreview = (
-  settings: any,
-  materialType: "OC" | "CC" = "OC",
-  condition: "wide" | "typical" | "tight" = "typical"
-) => {
-  const exampleBoardFeet = DEFAULTS.exampleBoardFeet;
-
-  // ✅ Use store values first, then constants as fallback
-  const materialCostPerBdFt =
-    materialType === "OC"
-      ? settings.materialOC ?? MATERIAL_COSTS.OC
-      : settings.materialCC ?? MATERIAL_COSTS.CC;
-
-  // Productivity multipliers (auto or manual)
-  const baseProd = settings.prodTypical ?? DEFAULTS.productionRateBdFtPerHour;
-  const productivity =
-    settings.autoProductivity
-      ? baseProd * (PRODUCTIVITY_MULTIPLIERS[condition] ?? 1)
-      : condition === "wide"
-        ? settings.prodWideOpen ?? baseProd * 1.4
-        : condition === "tight"
-          ? settings.prodTight ?? baseProd * 0.7
-          : baseProd;
-
-  // Pull labor & finance config
-  const laborRate = settings.laborRate ?? DEFAULTS.laborRate;
-  const crewSize = settings.crewSize ?? DEFAULTS.crewSize;
-  const materialMarkup = settings.materialMarkup ?? 15;
-  const mobilizationFee = settings.mobilizationFee ?? DEFAULTS.mobilizationFee;
-  const overhead = settings.overhead ?? DEFAULTS.overhead;
-  const profitMargin = settings.profitMargin ?? DEFAULTS.profitMargin;
-
-  // Core math
-  const rawMaterialCost = exampleBoardFeet * materialCostPerBdFt;
-  const markedUpMaterial = rawMaterialCost * (1 + materialMarkup / 100);
-  const laborHours = exampleBoardFeet / productivity;
-  const laborCost = laborHours * laborRate * crewSize;
-  const jobCost = laborCost + markedUpMaterial + mobilizationFee;
-  const estimatedSell =
-    jobCost * (1 + overhead / 100) * (1 + profitMargin / 100);
-
-  return {
-    productivity: roundTo(productivity),
-    laborHours: roundTo(laborHours, 1),
-    laborCost: roundTo(laborCost),
-    markedUpMaterial: roundTo(markedUpMaterial),
-    estimatedSell: roundTo(estimatedSell),
-    overhead,
-    profitMargin,
-  };
+export const pitchMultiplier = (pitch: number, pitchIsRiseOver12 = true): number => {
+  if (!pitchIsRiseOver12) return pitch;
+  // Simple rise/12 hypotenuse approximation:
+  const rise = pitch;
+  const run = 12;
+  return Math.sqrt(rise * rise + run * run) / run;
 };
 
+/** Board feet for attic/roof deck from plan-area sqft, pitch, thickness. */
+export const atticRoofBoardFeet = (
+  areaSqft: number,
+  pitch: number,
+  thicknessInches: number,
+  pitchIsRiseOver12 = true
+): number => boardFeetFromSqft(areaSqft * pitchMultiplier(pitch, pitchIsRiseOver12), thicknessInches);
 
+/** Board feet for flat areas (ceilings, slabs, etc.). */
+export const flatAreaBoardFeet = (areaSqft: number, thicknessInches: number): number =>
+  boardFeetFromSqft(areaSqft, thicknessInches);
+
+/**
+ * Linear feature board feet (e.g., rim joists).
+ * Assumes a default spray width (inches) across the linear length.
+ */
+export const linearBoardFeet = (
+  linearFeet: number,
+  sprayWidthInches: number,
+  thicknessInches: number
+): number => boardFeetFromSqft(linearFeet * (sprayWidthInches / 12), thicknessInches);
+
+/** Sum an array of board-feet values safely. */
+export const sumBoardFeet = (values: number[]): number =>
+  values.reduce((acc, v) => acc + (Number.isFinite(v) ? v : 0), 0);
+
+/** Labor hours from board feet and production rate (bdft/hr). */
+export const laborHours = (boardFeet: number, productionRateBdFtPerHour: number): number =>
+  productionRateBdFtPerHour > 0 ? boardFeet / productionRateBdFtPerHour : 0;
+
+/** Labor cost given hours, $/hr, and crew size. */
+export const laborCost = (hours: number, ratePerHour: number, crewSize: number): number =>
+  hours * ratePerHour * crewSize;
+
+/** Material cost given board feet and $/bdft (raw, before markup). */
+export const materialCost = (boardFeet: number, costPerBdFt: number): number =>
+  boardFeet * costPerBdFt;
+
+/** Apply a percentage markup (e.g., 20 => +20%). */
+export const applyMarkup = (value: number, percent: number): number =>
+  value * (1 + (percent || 0) / 100);
+
+/** Apply overhead then profit as separate percentages. */
+export const applyOverheadAndProfit = (
+  baseCost: number,
+  overheadPercent: number,
+  profitPercent: number
+): number => {
+  const withOverhead = baseCost * (1 + (overheadPercent || 0) / 100);
+  return withOverhead * (1 + (profitPercent || 0) / 100);
+};
+
+/**
+ * Convenience: compute assembly totals from primitives.
+ * Still “primitive” in that all inputs are raw numbers (no config/state).
+ */
+export const computeAssemblyTotals = (args: {
+  boardFeet: number;
+  costPerBdFt: number;     // raw material $/bdft (before markup)
+  materialMarkupPct: number;
+  productionRateBdFtPerHour: number;
+  laborRatePerHour: number;
+  crewSize: number;
+  overheadPct: number;
+  profitPct: number;
+}) => {
+  const rawMat = materialCost(args.boardFeet, args.costPerBdFt);
+  const matWithMarkup = applyMarkup(rawMat, args.materialMarkupPct);
+  const hrs = laborHours(args.boardFeet, args.productionRateBdFtPerHour);
+  const labor = laborCost(hrs, args.laborRatePerHour, args.crewSize);
+  const beforeMargin = matWithMarkup + labor;
+  const withMargin = applyOverheadAndProfit(beforeMargin, args.overheadPct, args.profitPct);
+
+  return {
+    materialCost: matWithMarkup,
+    laborCost: labor,
+    totalBeforeMargin: beforeMargin,
+    totalWithMargin: withMargin,
+    laborHours: hrs,
+  };
+};
