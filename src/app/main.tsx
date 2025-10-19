@@ -4,6 +4,7 @@ import { HeroUIProvider } from "@heroui/react";
 import App from "./App";
 import "../styles/globals.css";
 import { Toaster } from "sonner";
+import { SupabaseProvider } from "@/core/providers/SupabaseProvider";
 
 function Root() {
   const [theme, setTheme] = useState<"dark" | "light">(
@@ -19,10 +20,12 @@ function Root() {
 
   return (
     <HeroUIProvider>
-      <main className={`${theme} text-foreground bg-background min-h-screen`}>
-        <Toaster richColors position="bottom-right" />
-        <App />
-      </main>
+      <SupabaseProvider>
+        <main className={`${theme} text-foreground bg-background min-h-screen`}>
+          <Toaster richColors position="bottom-right" />
+          <App />
+        </main>
+      </SupabaseProvider>
     </HeroUIProvider>
   );
 }

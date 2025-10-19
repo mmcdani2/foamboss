@@ -185,3 +185,15 @@ pnpm dev
 ```
 
 App runs at **http://localhost:5173** by default.
+
+---
+
+## Supabase Configuration
+
+Set your project credentials before enabling Supabase features:
+
+1. Copy `.env.example` to `.env`.
+2. Fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from your Supabase project settings.
+3. Restart `pnpm dev` so Vite picks up the new environment variables.
+
+The app now exposes a `SupabaseProvider` and `useSupabase` hook for future data/auth integration. Without credentials the provider stays inert and logs a warning in development.
