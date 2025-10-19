@@ -14,6 +14,12 @@ interface SummaryCardProps {
 
 export default function SummaryCard({ onBack }: SummaryCardProps) {
   const { assemblies, estimate } = useEstimatorStore();
+  const materialShare = estimate.materialTotal ?? 0;
+  const laborShare = estimate.laborTotal ?? 0;
+  const marginShare = Math.max(
+    estimate.totalCost - materialShare - laborShare,
+    0
+  );
 
   return (
     <Card shadow="md" className="bg-content2 border border-default/20">
@@ -75,9 +81,9 @@ export default function SummaryCard({ onBack }: SummaryCardProps) {
                 <PieChart>
                   <Pie
                     data={[
-                      { name: "Material", value: estimate.totalCost * 0.6 },
-                      { name: "Labor", value: estimate.totalCost * 0.3 },
-                      { name: "Margin", value: estimate.totalCost * 0.1 },
+                      { name: "Material", value: materialShare },
+                      { name: "Labor", value: laborShare },
+                      { name: "Margin & Fees", value: marginShare },
                     ]}
                     dataKey="value"
                     innerRadius={50}

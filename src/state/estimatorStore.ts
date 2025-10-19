@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useSettingsStore } from "@/state/settingsStore";
+import {
+  calculateJobTotalsFromAssemblies,
+  type JobTotalsConfig,
+} from "@/lib/estimatorCalculator";
 
 
 export interface Assembly {
@@ -30,57 +33,84 @@ export interface Estimate {
   defaultFoam?: string;
   totalBoardFeet: number;
   totalCost: number;
+  subtotalBeforeFees: number;
+  materialTotal: number;
+  laborTotal: number;
+  overheadTotal: number;
+  profitTotal: number;
+  mobilizationFee: number;
+  pricing: JobTotalsConfig;
   createdAt: string;
 }
 
 interface EstimatorState {
   estimate: Estimate;
   assemblies: Assembly[];
-  addAssembly: (assembly: Assembly) => void;
-  removeAssembly: (id: string) => void;
-  recalcTotals: () => void;
+  addAssembly: (assembly: Assembly, pricing?: JobTotalsConfig) => void;
+  removeAssembly: (id: string, pricing?: JobTotalsConfig) => void;
+  recalcTotals: (pricing?: JobTotalsConfig) => void;
   resetEstimate: () => void;
   setEstimate: (data: Partial<Estimate>) => void;
   saveEstimate: () => void;
   loadEstimate: (id: string) => void;
 }
 
+const createEmptyEstimate = (): Estimate => ({
+  id: crypto.randomUUID(),
+  totalBoardFeet: 0,
+  totalCost: 0,
+  subtotalBeforeFees: 0,
+  materialTotal: 0,
+  laborTotal: 0,
+  overheadTotal: 0,
+  profitTotal: 0,
+  mobilizationFee: 0,
+  pricing: {
+    mobilizationFee: 0,
+  },
+  createdAt: new Date().toISOString(),
+});
+
 export const useEstimatorStore = create<EstimatorState>()(
   persist(
     (set, get) => ({
-      estimate: {
-        id: crypto.randomUUID(),
-        totalBoardFeet: 0,
-        totalCost: 0,
-        createdAt: new Date().toISOString(),
-      },
+      estimate: createEmptyEstimate(),
       assemblies: [],
 
-      addAssembly: (assembly) => {
+      addAssembly: (assembly, pricing) => {
         const newAssemblies = [...get().assemblies, assembly];
         set({ assemblies: newAssemblies });
-        get().recalcTotals();
+        get().recalcTotals(pricing);
       },
 
-      removeAssembly: (id) => {
+      removeAssembly: (id, pricing) => {
         const newAssemblies = get().assemblies.filter((a) => a.id !== id);
         set({ assemblies: newAssemblies });
-        get().recalcTotals();
+        get().recalcTotals(pricing);
       },
 
-      recalcTotals: () => {
+      recalcTotals: (pricing) => {
         const assemblies = get().assemblies;
-        const totalBoardFeet = assemblies.reduce((sum, a) => sum + a.boardFeet, 0);
-        const totalCostWithoutMobilization = assemblies.reduce((sum, a) => sum + a.totalCost, 0);
+        const existingPricing = get().estimate.pricing ?? {};
+        const mergedPricing: JobTotalsConfig = {
+          ...existingPricing,
+          ...pricing,
+        };
 
-        const mobilization = useSettingsStore.getState().settings.mobilizationFee || 0;
-        const totalCost = totalCostWithoutMobilization + mobilization;
+        const totals = calculateJobTotalsFromAssemblies(assemblies, mergedPricing);
 
         set({
           estimate: {
             ...get().estimate,
-            totalBoardFeet,
-            totalCost,
+            totalBoardFeet: totals.totalBoardFeet,
+            totalCost: totals.grandTotal,
+            subtotalBeforeFees: totals.subtotalWithMargin,
+            materialTotal: totals.materialTotal,
+            laborTotal: totals.laborTotal,
+            overheadTotal: totals.overheadTotal,
+            profitTotal: totals.profitTotal,
+            mobilizationFee: totals.mobilizationFee,
+            pricing: mergedPricing,
           },
         });
       },
@@ -88,21 +118,22 @@ export const useEstimatorStore = create<EstimatorState>()(
 
       resetEstimate: () => {
         set({
-          estimate: {
-            id: crypto.randomUUID(),
-            totalBoardFeet: 0,
-            totalCost: 0,
-            createdAt: new Date().toISOString(),
-          },
+          estimate: createEmptyEstimate(),
           assemblies: [],
         });
       },
 
       setEstimate: (data) => {
+        const current = get().estimate;
+        const nextPricing = data.pricing
+          ? { ...current.pricing, ...data.pricing }
+          : current.pricing;
+
         set({
           estimate: {
-            ...get().estimate,
+            ...current,
             ...data,
+            pricing: nextPricing,
           },
         });
       },
@@ -120,9 +151,24 @@ export const useEstimatorStore = create<EstimatorState>()(
         const saved = JSON.parse(localStorage.getItem("foamboss-saved-estimates") || "[]");
         const match = saved.find((e: any) => e.id === id);
         if (match) {
+          const {
+            assemblies: storedAssemblies = [],
+            pricing: storedPricing,
+            ...rest
+          } = match;
+
+          const empty = createEmptyEstimate();
+
           set({
-            estimate: match,
-            assemblies: match.assemblies || [],
+            estimate: {
+              ...empty,
+              ...rest,
+              pricing: {
+                ...empty.pricing,
+                ...(storedPricing ?? {}),
+              },
+            },
+            assemblies: storedAssemblies,
           });
         }
       },

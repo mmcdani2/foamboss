@@ -6,8 +6,10 @@ import {
   Tab,
   Button,
 } from "@heroui/react";
-import { useEffect, useState } from "react";
-import { useHydratedSettings } from "@/state/settingsStore";
+import { useEffect, useRef, useState } from "react";
+import { useCompanySettings } from "@/state/useCompanySettings";
+import { usePricingSettings } from "@/state/usePricingSettings";
+import { useUserSettings } from "@/state/useUserSettings";
 import CompanySettings from "./components/CompanySettings";
 import PricingSettings from "./components/PricingSettings";
 import TemplateSettings from "./components/TemplateSettings";
@@ -15,66 +17,200 @@ import UserSettings from "./components/UserSettings";
 import IntegrationSettings from "./components/IntegrationSettings";
 import { toast } from "sonner";
 import { Building2, DollarSign, FileText, Users, Plug } from "lucide-react";
+import type { User, Team, PayType } from "@/types/user";
+import { TEAM_OPTIONS } from "@/types/user";
+
+const PAY_TYPES: PayType[] = ["Hourly", "Percentage", "Salary", "None"];
+
+interface LegacySettings {
+  companyName: string;
+  address: string;
+  phone: string;
+  licenseNumber: string;
+  laborRate: number;
+  marginPercent: number;
+  mobilizationFee: number;
+  includeFuelSurcharge: boolean;
+  prodTypical: number;
+  prodWideOpen: number;
+  prodTight: number;
+  autoProductivity: boolean;
+  crewSize: number;
+  materialOC: number;
+  materialCC: number;
+  materialMarkup: number;
+  overhead: number;
+  profitMargin: number;
+  users: unknown[];
+}
+
+const LEGACY_SETTINGS_STORAGE_KEY = "foamboss-settings-storage";
+const LEGACY_DEFAULTS: LegacySettings = {
+  companyName: "",
+  address: "",
+  phone: "",
+  licenseNumber: "",
+  laborRate: 35,
+  marginPercent: 25,
+  mobilizationFee: 50,
+  includeFuelSurcharge: false,
+  prodTypical: 900,
+  prodWideOpen: 1260,
+  prodTight: 630,
+  autoProductivity: true,
+  crewSize: 3,
+  materialOC: 0.45,
+  materialCC: 1.0,
+  materialMarkup: 15,
+  overhead: 10,
+  profitMargin: 20,
+  users: [],
+};
+
+const readLegacySettings = (): LegacySettings => {
+  if (typeof window === "undefined") return { ...LEGACY_DEFAULTS };
+  try {
+    const raw = window.localStorage.getItem(LEGACY_SETTINGS_STORAGE_KEY);
+    if (!raw) return { ...LEGACY_DEFAULTS };
+    const parsed = JSON.parse(raw);
+    const stored =
+      (parsed?.state?.settings as LegacySettings | undefined) ??
+      (parsed?.settings as LegacySettings | undefined);
+    if (!stored) return { ...LEGACY_DEFAULTS };
+    return { ...LEGACY_DEFAULTS, ...stored };
+  } catch {
+    return { ...LEGACY_DEFAULTS };
+  }
+};
+
+const persistLegacySettings = (settings: LegacySettings) => {
+  if (typeof window === "undefined") return;
+  try {
+    const payload = JSON.stringify({
+      state: { settings },
+      version: 2,
+    });
+    window.localStorage.setItem(LEGACY_SETTINGS_STORAGE_KEY, payload);
+  } catch {
+    // Swallow storage exceptions (e.g., quota exceeded) to avoid runtime crashes.
+  }
+};
+
+function useHydratedSettings() {
+  const [settings, setSettings] = useState<LegacySettings>(() => readLegacySettings());
+  const [hydrated, setHydrated] = useState<boolean>(false);
+
+  useEffect(() => {
+    setSettings(readLegacySettings());
+    setHydrated(true);
+  }, []);
+
+  const updateSettings = (data: Partial<LegacySettings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...data };
+      persistLegacySettings(next);
+      return next;
+    });
+  };
+
+  return { settings, updateSettings, hydrated };
+}
 
 export default function SettingsPage() {
   const { settings, updateSettings, hydrated } = useHydratedSettings();
-
-  // --- Local UI state mirrors persisted data ---
-  const [company, setCompany] = useState({
-    name: "",
-    address: "",
-    phone: "",
-    license: "",
-  });
-
-  const [pricing, setPricing] = useState({
-    laborRate: "",
-    margin: "",
-    mobilization: "",
-    fuelSurcharge: false,
-  });
+  const company = useCompanySettings((s) => s.company);
+  const updateCompany = useCompanySettings((s) => s.updateCompany);
+  const pricingSettings = usePricingSettings((s) => s.pricing);
+  const updatePricing = usePricingSettings((s) => s.updatePricing);
+  const setUsers = useUserSettings((s) => s.setUsers);
+  const users = useUserSettings((s) => s.users);
 
   const [quoteTemplate, setQuoteTemplate] = useState(
     "All work performed according to manufacturer’s specifications. Payment due upon completion unless otherwise noted."
   );
 
-  // --- Hydration sync ---
+  const initializedRef = useRef(false);
   useEffect(() => {
-    if (hydrated) {
-      setCompany({
-        name: settings.companyName || "",
-        address: settings.address || "",
-        phone: settings.phone || "",
-        license: settings.licenseNumber || "",
+    if (!hydrated || initializedRef.current) return;
+    initializedRef.current = true;
+
+    const nextCompany = {
+      companyName: settings.companyName,
+      licenseNumber: settings.licenseNumber,
+      address: settings.address,
+      phone: settings.phone,
+    };
+
+    updateCompany(nextCompany);
+
+    if (Array.isArray(settings.users)) {
+      const defaultTeam: Team = "Helpers";
+      const mappedUsers: User[] = (settings.users as unknown as any[]).map((legacy) => {
+        const payType = PAY_TYPES.includes(legacy.payType as PayType)
+          ? (legacy.payType as PayType)
+          : "None";
+        const team = TEAM_OPTIONS.includes(legacy.team as Team)
+          ? (legacy.team as Team)
+          : defaultTeam;
+        return {
+          id: legacy.id ?? crypto.randomUUID(),
+          name: legacy.name ?? "",
+          role: legacy.role ?? "",
+          status: legacy.status ?? "Active",
+          payType,
+          team,
+          email: legacy.email ?? "",
+          hourlyRate:
+            typeof legacy.hourlyRate === "number" ? legacy.hourlyRate : undefined,
+          percentageRate:
+            typeof legacy.percentageRate === "number"
+              ? legacy.percentageRate
+              : undefined,
+          avatar: legacy.avatar,
+        };
       });
-      setPricing({
-        laborRate: settings.laborRate.toString(),
-        margin: settings.marginPercent.toString(),
-        mobilization: settings.mobilizationFee.toString(),
-        fuelSurcharge: settings.includeFuelSurcharge,
-      });
+      setUsers(mappedUsers);
     }
-  }, [hydrated, settings]);
 
-  // --- Loading guard ---
-  if (!hydrated)
-    return (
-      <div className="p-6 text-default-500 text-sm">
-        Loading settings...
-      </div>
-    );
+    const nextPricing = {
+      laborRate: settings.laborRate,
+      crewSize: settings.crewSize,
+      prodTypical: settings.prodTypical,
+      prodWideOpen: settings.prodWideOpen,
+      prodTight: settings.prodTight,
+      autoProductivity: settings.autoProductivity,
+      materialOC: settings.materialOC,
+      materialCC: settings.materialCC,
+      materialMarkup: settings.materialMarkup,
+      overhead: settings.overhead,
+      profitMargin: settings.profitMargin,
+      mobilizationFee: settings.mobilizationFee,
+    };
 
-  // --- Persist updates ---
-  const handleSave = () => {
+    updatePricing(nextPricing);
+  }, [hydrated, settings, updateCompany, updatePricing, setUsers]);
+
+const handleSave = () => {
     updateSettings({
-      companyName: company.name,
+      companyName: company.companyName,
       address: company.address,
       phone: company.phone,
-      licenseNumber: company.license,
-      laborRate: parseFloat(pricing.laborRate),
-      marginPercent: parseFloat(pricing.margin),
-      mobilizationFee: parseFloat(pricing.mobilization),
-      includeFuelSurcharge: pricing.fuelSurcharge,
+      licenseNumber: company.licenseNumber,
+      laborRate: pricingSettings.laborRate,
+      marginPercent: settings.marginPercent,
+      mobilizationFee: pricingSettings.mobilizationFee,
+      includeFuelSurcharge: settings.includeFuelSurcharge,
+      crewSize: pricingSettings.crewSize,
+      prodTypical: pricingSettings.prodTypical,
+      prodWideOpen: pricingSettings.prodWideOpen,
+      prodTight: pricingSettings.prodTight,
+      autoProductivity: pricingSettings.autoProductivity,
+      materialOC: pricingSettings.materialOC,
+      materialCC: pricingSettings.materialCC,
+      materialMarkup: pricingSettings.materialMarkup,
+      overhead: pricingSettings.overhead,
+      profitMargin: pricingSettings.profitMargin,
+      users: users.map((user) => ({ ...user })),
     });
 
     toast.success("Settings saved successfully!", {
@@ -115,7 +251,7 @@ export default function SettingsPage() {
             }}
           >
             <Tab key="company" title="Company">
-              <CompanySettings company={company} setCompany={setCompany} />
+              <CompanySettings />
             </Tab>
 
             <Tab key="pricing" title="Pricing">
@@ -149,3 +285,10 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+
+
+
+
+
+

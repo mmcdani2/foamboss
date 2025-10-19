@@ -1,17 +1,21 @@
 // src/lib/pricingPreviewCalculator.ts
 
-import { DEFAULTS, PRODUCTIVITY_MULTIPLIERS, MATERIAL_COSTS } from "./constants";
+import { DEFAULTS, MATERIAL_COSTS } from "./constants";
 import {
+  roundTo,
   laborHours as calcLaborHours,
   laborCost as calcLaborCost,
   materialCost as calcMaterialCost,
   applyMarkup,
   applyOverheadAndProfit,
 } from "./calculator";
-import { roundTo } from "./utils";
+import {
+  resolveProductivityRate,
+  type ProductivityCondition,
+} from "./productivity";
 
 export type MaterialType = "OC" | "CC";
-export type Condition = "wide" | "typical" | "tight";
+export type Condition = ProductivityCondition;
 
 /** Shape aligned with your Pricing store slice (no framework types here). */
 export interface PricingPreviewConfig {
@@ -47,16 +51,6 @@ const pickMaterialCost = (cfg: PricingPreviewConfig, type: MaterialType) => {
   return type === "OC" ? oc : cc;
 };
 
-const resolveProductivity = (cfg: PricingPreviewConfig, condition: Condition): number => {
-  const base = cfg.prodTypical ?? DEFAULTS.productionRateBdFtPerHour;
-  if (cfg.autoProductivity) {
-    return base * (PRODUCTIVITY_MULTIPLIERS[condition] ?? 1);
-  }
-  if (condition === "wide") return cfg.prodWideOpen ?? Math.round(base * 1.4);
-  if (condition === "tight") return cfg.prodTight ?? Math.round(base * 0.7);
-  return base; // typical
-};
-
 /* ------------------------ Main Calculator ------------------------ */
 
 export const calculatePricingPreview = (
@@ -68,7 +62,14 @@ export const calculatePricingPreview = (
   const boardFeet = cfg.exampleBoardFeet ?? DEFAULTS.exampleBoardFeet;
 
   // Productivity & labor
-  const productivity = resolveProductivity(cfg, condition);        // bdft/hr
+  const productivity = resolveProductivityRate(condition, cfg.prodTypical, {
+    autoProductivity: cfg.autoProductivity,
+    overrides: {
+      typical: cfg.prodTypical,
+      wide: cfg.prodWideOpen,
+      tight: cfg.prodTight,
+    },
+  });
   const hours = calcLaborHours(boardFeet, productivity);           // hr
   const labor = calcLaborCost(hours, cfg.laborRate, cfg.crewSize); // $
 
@@ -89,6 +90,7 @@ export const calculatePricingPreview = (
   );
 
   return {
+    boardFeet,
     productivity: roundTo(productivity),
     laborHours: roundTo(hours, 1),
     laborCost: roundTo(labor),

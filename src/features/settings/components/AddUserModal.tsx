@@ -10,11 +10,22 @@ import {
   Button,
 } from "@heroui/react";
 import { useState } from "react";
-import {
-  useSettingsStore,
-  PayType,
-  UserSetting,
-} from "@/state/settingsStore";
+import { useUserSettings } from "@/state/useUserSettings";
+import type { PayType, Team, User } from "@/types/user";
+import { TEAM_OPTIONS } from "@/types/user";
+
+const PAY_TYPES: PayType[] = ["None", "Hourly", "Percentage", "Salary"];
+const DEFAULT_STATUS = "Active";
+const DEFAULT_TEAM = TEAM_OPTIONS[0];
+
+const DEFAULT_FORM: Partial<User> = {
+  name: "",
+  role: "",
+  status: DEFAULT_STATUS,
+  payType: "None",
+  team: DEFAULT_TEAM,
+  email: "",
+};
 
 interface AddUserModalProps {
   isOpen: boolean;
@@ -22,59 +33,108 @@ interface AddUserModalProps {
 }
 
 export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
-  const { addUser } = useSettingsStore();
+  const addUser = useUserSettings((state) => state.addUser);
 
-  const [form, setForm] = useState<Partial<UserSetting>>({
-    name: "",
-    role: "",
-    status: "Active",
-    payType: "None",
-  });
+  const [form, setForm] = useState<Partial<User>>({ ...DEFAULT_FORM });
+
+  const resetForm = () => setForm({ ...DEFAULT_FORM });
 
   const handleSave = () => {
-    if (!form.name || !form.role) {
-      alert("Name and role are required.");
+    const name = form.name?.trim() ?? "";
+    const role = form.role?.trim() ?? "";
+    const email = form.email?.trim() ?? "";
+
+    if (!name || !role || !email) {
+      alert("Name, role, and email are required.");
       return;
     }
 
-    addUser({
+    const payType = PAY_TYPES.includes(form.payType as PayType)
+      ? (form.payType as PayType)
+      : "None";
+
+    const team = TEAM_OPTIONS.includes(form.team as Team)
+      ? (form.team as Team)
+      : DEFAULT_TEAM;
+
+    const status = form.status?.trim() || DEFAULT_STATUS;
+    const hourlyRate =
+      typeof form.hourlyRate === "number" && Number.isFinite(form.hourlyRate)
+        ? form.hourlyRate
+        : undefined;
+    const percentageRate =
+      typeof form.percentageRate === "number" && Number.isFinite(form.percentageRate)
+        ? form.percentageRate
+        : undefined;
+    const avatar = form.avatar?.trim() || undefined;
+
+    const newUser: User = {
       id: crypto.randomUUID(),
-      name: form.name,
-      role: form.role,
-      status: form.status || "Active",
-      payType: form.payType || "None",
-      hourlyRate: form.hourlyRate,
-      percentageRate: form.percentageRate,
-    } as UserSetting);
+      name,
+      role,
+      status,
+      payType,
+      hourlyRate,
+      percentageRate,
+      email,
+      team,
+      avatar,
+    };
+
+    addUser(newUser);
 
     onClose();
-    setForm({ name: "", role: "", status: "Active", payType: "None" });
+    resetForm();
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} placement="center" size="md">
+    <Modal isOpen={isOpen} onClose={handleClose} placement="center" size="md">
       <ModalContent>
         <ModalHeader>Add New User</ModalHeader>
         <ModalBody className="flex flex-col gap-4">
           <Input
             label="Name"
-            value={form.name || ""}
+            value={form.name ?? ""}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
           <Input
             label="Role"
-            value={form.role || ""}
+            value={form.role ?? ""}
             onChange={(e) => setForm({ ...form, role: e.target.value })}
           />
 
+          <Input
+            label="Email"
+            type="email"
+            value={form.email ?? ""}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+
+          <Select
+            label="Team"
+            selectedKeys={[form.team ?? DEFAULT_TEAM]}
+            onChange={(e) =>
+              setForm({ ...form, team: e.target.value as Team })
+            }
+          >
+            {TEAM_OPTIONS.map((team) => (
+              <SelectItem key={team}>{team}</SelectItem>
+            ))}
+          </Select>
+
           <Select
             label="Pay Type"
-            selectedKeys={[form.payType || "None"]}
+            selectedKeys={[form.payType ?? "None"]}
             onChange={(e) =>
               setForm({ ...form, payType: e.target.value as PayType })
             }
           >
-            {["None", "Hourly", "Percentage"].map((p) => (
+            {PAY_TYPES.map((p) => (
               <SelectItem key={p}>{p}</SelectItem>
             ))}
           </Select>
@@ -87,7 +147,7 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  hourlyRate: parseFloat(e.target.value),
+                  hourlyRate: e.target.value ? parseFloat(e.target.value) : undefined,
                 })
               }
             />
@@ -101,14 +161,16 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  percentageRate: parseFloat(e.target.value),
+                  percentageRate: e.target.value
+                    ? parseFloat(e.target.value)
+                    : undefined,
                 })
               }
             />
           )}
         </ModalBody>
         <ModalFooter>
-          <Button color="default" variant="flat" onPress={onClose}>
+          <Button color="default" variant="flat" onPress={handleClose}>
             Cancel
           </Button>
           <Button color="secondary" onPress={handleSave}>

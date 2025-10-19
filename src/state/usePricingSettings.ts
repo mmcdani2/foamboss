@@ -1,6 +1,7 @@
 // src/state/settings/usePricingSettings.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { deriveAutoProductivityRates } from "@/lib/productivity";
 
 /** Domain model for Pricing Settings */
 export interface PricingSettings {
@@ -33,15 +34,18 @@ interface PricingState {
 }
 
 /** Centralized defaults */
+const DEFAULT_TYPICAL = 1000;
+const DEFAULT_AUTO = deriveAutoProductivityRates(DEFAULT_TYPICAL);
+
 const DEFAULTS: PricingSettings = {
   // Labor
   laborRate: 50,
   crewSize: 2,
 
   // Productivity
-  prodTypical: 1000,
-  prodWideOpen: 1400, // 1.4x typical
-  prodTight: 700,     // 0.7x typical
+  prodTypical: DEFAULT_TYPICAL,
+  prodWideOpen: DEFAULT_AUTO.wide, // derived from multipliers
+  prodTight: DEFAULT_AUTO.tight,   // derived from multipliers
   autoProductivity: true,
 
   // Material
@@ -94,15 +98,16 @@ export const usePricingSettings = create<PricingState>()(
           ? !!data.autoProductivity
           : merged.autoProductivity;
 
-        if (autoToggledOn) {
-          if (
-            prodTypicalChanged &&
-            !Object.prototype.hasOwnProperty.call(data, "prodWideOpen") &&
-            !Object.prototype.hasOwnProperty.call(data, "prodTight")
-          ) {
-            merged.prodWideOpen = Math.round(merged.prodTypical * 1.4);
-            merged.prodTight    = Math.round(merged.prodTypical * 0.7);
-          }
+        if (
+          autoToggledOn &&
+          !Object.prototype.hasOwnProperty.call(data, "prodWideOpen") &&
+          !Object.prototype.hasOwnProperty.call(data, "prodTight") &&
+          (prodTypicalChanged ||
+            Object.prototype.hasOwnProperty.call(data, "autoProductivity"))
+        ) {
+          const autoRates = deriveAutoProductivityRates(merged.prodTypical);
+          merged.prodWideOpen = autoRates.wide;
+          merged.prodTight = autoRates.tight;
         }
 
         set({ pricing: merged });

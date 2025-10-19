@@ -4,12 +4,18 @@
 // No framework/state/config awareness — pure functions only.
 //
 
-/** Convert thickness in inches to feet. */
-export const inchesToFeet = (inches: number): number => inches / 12;
+/** Round a number to N decimal places (defaults to 2). */
+export const roundTo = (value: number, decimals = 2): number => {
+  if (!Number.isFinite(value)) return 0;
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+};
 
 /** Board feet from area in sqft and thickness in inches. */
-export const boardFeetFromSqft = (areaSqft: number, thicknessInches: number): number =>
-  areaSqft * inchesToFeet(thicknessInches);
+export const boardFeetFromSqft = (
+  areaSqft: number,
+  thicknessInches: number
+): number => areaSqft * thicknessInches;
 
 /** Board feet for walls from linear feet, height (ft), thickness (in). */
 export const wallBoardFeet = (
@@ -23,7 +29,10 @@ export const wallBoardFeet = (
  * - If you pass a common roof pitch like 4 (for 4/12), set `pitchIsRiseOver12=true`.
  * - If you already have a multiplier (e.g., 1.15), set `pitchIsRiseOver12=false`.
  */
-export const pitchMultiplier = (pitch: number, pitchIsRiseOver12 = true): number => {
+export const pitchMultiplier = (
+  pitch: number,
+  pitchIsRiseOver12 = true
+): number => {
   if (!pitchIsRiseOver12) return pitch;
   // Simple rise/12 hypotenuse approximation:
   const rise = pitch;
@@ -37,11 +46,17 @@ export const atticRoofBoardFeet = (
   pitch: number,
   thicknessInches: number,
   pitchIsRiseOver12 = true
-): number => boardFeetFromSqft(areaSqft * pitchMultiplier(pitch, pitchIsRiseOver12), thicknessInches);
+): number =>
+  boardFeetFromSqft(
+    areaSqft * pitchMultiplier(pitch, pitchIsRiseOver12),
+    thicknessInches
+  );
 
 /** Board feet for flat areas (ceilings, slabs, etc.). */
-export const flatAreaBoardFeet = (areaSqft: number, thicknessInches: number): number =>
-  boardFeetFromSqft(areaSqft, thicknessInches);
+export const flatAreaBoardFeet = (
+  areaSqft: number,
+  thicknessInches: number
+): number => boardFeetFromSqft(areaSqft, thicknessInches);
 
 /**
  * Linear feature board feet (e.g., rim joists).
@@ -51,19 +66,26 @@ export const linearBoardFeet = (
   linearFeet: number,
   sprayWidthInches: number,
   thicknessInches: number
-): number => boardFeetFromSqft(linearFeet * (sprayWidthInches / 12), thicknessInches);
+): number =>
+  boardFeetFromSqft(linearFeet * (sprayWidthInches / 12), thicknessInches);
 
 /** Sum an array of board-feet values safely. */
 export const sumBoardFeet = (values: number[]): number =>
   values.reduce((acc, v) => acc + (Number.isFinite(v) ? v : 0), 0);
 
 /** Labor hours from board feet and production rate (bdft/hr). */
-export const laborHours = (boardFeet: number, productionRateBdFtPerHour: number): number =>
+export const laborHours = (
+  boardFeet: number,
+  productionRateBdFtPerHour: number
+): number =>
   productionRateBdFtPerHour > 0 ? boardFeet / productionRateBdFtPerHour : 0;
 
 /** Labor cost given hours, $/hr, and crew size. */
-export const laborCost = (hours: number, ratePerHour: number, crewSize: number): number =>
-  hours * ratePerHour * crewSize;
+export const laborCost = (
+  hours: number,
+  ratePerHour: number,
+  crewSize: number
+): number => hours * ratePerHour * crewSize;
 
 /** Material cost given board feet and $/bdft (raw, before markup). */
 export const materialCost = (boardFeet: number, costPerBdFt: number): number =>
@@ -83,32 +105,4 @@ export const applyOverheadAndProfit = (
   return withOverhead * (1 + (profitPercent || 0) / 100);
 };
 
-/**
- * Convenience: compute assembly totals from primitives.
- * Still “primitive” in that all inputs are raw numbers (no config/state).
- */
-export const computeAssemblyTotals = (args: {
-  boardFeet: number;
-  costPerBdFt: number;     // raw material $/bdft (before markup)
-  materialMarkupPct: number;
-  productionRateBdFtPerHour: number;
-  laborRatePerHour: number;
-  crewSize: number;
-  overheadPct: number;
-  profitPct: number;
-}) => {
-  const rawMat = materialCost(args.boardFeet, args.costPerBdFt);
-  const matWithMarkup = applyMarkup(rawMat, args.materialMarkupPct);
-  const hrs = laborHours(args.boardFeet, args.productionRateBdFtPerHour);
-  const labor = laborCost(hrs, args.laborRatePerHour, args.crewSize);
-  const beforeMargin = matWithMarkup + labor;
-  const withMargin = applyOverheadAndProfit(beforeMargin, args.overheadPct, args.profitPct);
 
-  return {
-    materialCost: matWithMarkup,
-    laborCost: labor,
-    totalBeforeMargin: beforeMargin,
-    totalWithMargin: withMargin,
-    laborHours: hrs,
-  };
-};

@@ -19,6 +19,8 @@ export default function InfoTip({ content }: { content: string }) {
             placement="right-start"
             color="secondary"
             offset={8}
+            closeDelay={150}
+            delay={0}
             classNames={{
                 base: "rounded-xl shadow-lg backdrop-blur-md border border-default/20",
                 content: "text-sm font-medium text-white/90",

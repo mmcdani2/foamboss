@@ -10,6 +10,7 @@ interface PricingPreviewProps {
   setCondition: (c: "wide" | "typical" | "tight") => void;
   conditionLabel: (key: string) => string;
 
+  boardFeet: number;
   productivity: number;
   laborHours: number;
   laborCost: number;
@@ -25,6 +26,7 @@ export default function PricingPreview({
   condition,
   setCondition,
   conditionLabel,
+  boardFeet,
   productivity,
   laborHours,
   laborCost,
@@ -39,6 +41,10 @@ export default function PricingPreview({
       : Number.isFinite(Number(estimatedSell))
       ? Number(estimatedSell).toFixed(2)
       : "0.00";
+
+  const formattedBoardFeet = Number.isFinite(boardFeet)
+    ? boardFeet.toLocaleString()
+    : "0";
 
   return (
     <div className="order-last sm:order-last">
@@ -130,7 +136,7 @@ export default function PricingPreview({
                     <span className="font-medium text-foreground/80">
                       Job Size:
                     </span>{" "}
-                    1,000 bdft
+                    {formattedBoardFeet} bdft
                   </p>
 
                   <p>

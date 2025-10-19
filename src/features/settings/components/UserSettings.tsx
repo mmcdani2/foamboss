@@ -18,19 +18,21 @@ import {
   DropdownMenu,
   DropdownItem,
   Chip,
-  User,
+  User as UserAvatar,
   Pagination,
   Select,
   SelectItem,
 } from "@heroui/react";
 import { Key, SortDescriptor } from "@react-types/shared";
 import { Eye, Edit3, Trash2 } from "lucide-react";
-import { useSettingsStore } from "@/state/settingsStore";
-import type { UserSetting } from "@/state/settingsStore";
+import { useUserSettings } from "@/state/useUserSettings";
+import type { User, Team } from "@/types/user";
+import { TEAM_OPTIONS } from "@/types/user";
 import AddUserModal from "./AddUserModal";
 
 // ---------- Types ----------
-type UserColumnKey = "id" | "name" | "age" | "role" | "team" | "email" | "status";
+type UserColumnKey = "id" | "name" | "role" | "team" | "email" | "status" | "actions";
+type SortableUserColumnKey = Exclude<UserColumnKey, "actions">;
 
 interface ColumnType {
   name: string;
@@ -54,10 +56,9 @@ interface IconProps {
 export const columns: ColumnType[] = [
   { name: "ID", uid: "id", sortable: true },
   { name: "NAME", uid: "name", sortable: true },
-  { name: "AGE", uid: "age", sortable: true },
   { name: "ROLE", uid: "role", sortable: true },
-  { name: "TEAM", uid: "team" },
-  { name: "EMAIL", uid: "email" },
+  { name: "TEAM", uid: "team", sortable: true },
+  { name: "EMAIL", uid: "email", sortable: true },
   { name: "STATUS", uid: "status", sortable: true },
   { name: "ACTIONS", uid: "actions" },
 ];
@@ -69,16 +70,41 @@ export const statusOptions: StatusOption[] = [
 ];
 
 
+const teamOptions: StatusOption[] = TEAM_OPTIONS.map((team) => ({
+  name: team,
+  uid: team.toLowerCase(),
+}));
+
+const statusMenuItems: StatusOption[] = [
+  { name: "All Statuses", uid: "all" },
+  ...statusOptions,
+];
+
+const teamMenuItems: StatusOption[] = [
+  { name: "All Teams", uid: "all" },
+  ...teamOptions,
+];
+
+interface ColumnMenuItem {
+  uid: ColumnType["uid"];
+  label: string;
+}
+
+const columnMenuItems: ColumnMenuItem[] = columns.map((column) => ({
+  uid: column.uid,
+  label: column.name,
+}));
+
 
 interface EditUserModalProps {
   isOpen: boolean;
-  user: UserSetting | null;
+  user: User | null;
   onClose: () => void;
-  onSave: (updates: Partial<UserSetting>) => void;
+  onSave: (updates: Partial<User>) => void;
 }
 
 const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, onSave }) => {
-  const [form, setForm] = useState<Partial<UserSetting>>({});
+  const [form, setForm] = useState<Partial<User>>({});
 
   useEffect(() => {
     if (user) {
@@ -91,7 +117,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, on
         payType: user.payType,
         hourlyRate: user.hourlyRate,
         percentageRate: user.percentageRate,
-        age: user.age,
         avatar: user.avatar,
       });
     }
@@ -100,8 +125,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, on
   if (!user) return null;
 
   const handleSave = () => {
-    if (!form.name || !form.role) {
-      alert("Name and role are required.");
+    if (!form.name || !form.role || !form.email) {
+      alert("Name, role, and email are required.");
       return;
     }
 
@@ -109,12 +134,11 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, on
       name: form.name,
       role: form.role,
       status: form.status ?? user.status,
-      team: form.team,
-      email: form.email,
+      team: (form.team as Team) ?? user.team ?? "Helpers",
+      email: form.email ?? user.email ?? "",
       payType: form.payType ?? user.payType,
       hourlyRate: form.hourlyRate,
       percentageRate: form.percentageRate,
-      age: form.age,
       avatar: form.avatar,
     });
   };
@@ -134,11 +158,15 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, on
             value={form.role ?? ""}
             onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
           />
-          <Input
+          <Select
             label="Team"
-            value={form.team ?? ""}
-            onChange={(e) => setForm((prev) => ({ ...prev, team: e.target.value }))}
-          />
+            selectedKeys={[form.team ?? user.team ?? "Admin"]}
+            onChange={(e) => setForm((prev) => ({ ...prev, team: e.target.value as Team }))}
+          >
+            {TEAM_OPTIONS.map((team) => (
+              <SelectItem key={team}>{team}</SelectItem>
+            ))}
+          </Select>
           <Input
             label="Email"
             type="email"
@@ -258,17 +286,19 @@ const statusColorMap: Record<string, "success" | "danger" | "warning"> = {
 
 // ---------- Component ----------
 export default function UserSettings() {
-  const { settings, removeUser, updateUser } = useSettingsStore();
-  const users = settings.users;
+  const users = useUserSettings((state) => state.users);
+  const removeUser = useUserSettings((state) => state.removeUser);
+  const updateUser = useUserSettings((state) => state.updateUser);
   const [filterValue, setFilterValue] = useState<string>("");
   const [selectedKeys, setSelectedKeys] = useState<Set<Key>>(new Set());
   const [visibleColumns, setVisibleColumns] = useState<Set<Key>>(
-    new Set(["name", "role", "status", "actions"])
+    new Set(["name", "role", "team", "email", "status", "actions"])
   );
   const [statusFilter, setStatusFilter] = useState<Set<Key>>(new Set(["all"]));
+  const [teamFilter, setTeamFilter] = useState<Set<Key>>(new Set(["all"]));
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
-    column: "age",
+    column: "name",
     direction: "ascending",
   });
   const [page, setPage] = useState<number>(1);
@@ -279,19 +309,26 @@ export default function UserSettings() {
     return values.includes("all") ? [] : values;
   }, [statusFilter]);
 
+  const normalizedTeamFilter = useMemo(() => {
+    const values = Array.from(teamFilter).map((team) =>
+      String(team).toLowerCase()
+    );
+    return values.includes("all") ? [] : values;
+  }, [teamFilter]);
+
   // ---------- CRUD State ----------
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserSetting | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // ---------- CRUD Handlers ----------
-  const handleView = useCallback((user: UserSetting) => {
+  const handleView = useCallback((user: User) => {
     setSelectedUser(user);
     setIsViewModalOpen(true);
   }, []);
 
-  const handleEdit = useCallback((user: UserSetting) => {
+  const handleEdit = useCallback((user: User) => {
     setSelectedUser(user);
     setIsEditModalOpen(true);
   }, []);
@@ -304,7 +341,7 @@ export default function UserSettings() {
   );
 
   const handleUpdateUser = useCallback(
-    (updates: Partial<UserSetting>) => {
+    (updates: Partial<User>) => {
       if (!selectedUser) return;
       updateUser(selectedUser.id, updates);
       setIsEditModalOpen(false);
@@ -324,36 +361,69 @@ export default function UserSettings() {
   const headerColumns = useMemo(() => {
     if (visibleColumns.has("all")) return columns;
     return columns.filter((column) => Array.from(visibleColumns).includes(column.uid));
-  }, [visibleColumns, users]);
+  }, [visibleColumns]);
 
   const filteredItems = useMemo(() => {
     let filteredUsers = [...users];
     if (hasSearchFilter) {
-      filteredUsers = filteredUsers.filter((user) =>
-        (user.name ?? "").toLowerCase().includes(filterValue.toLowerCase())
-      );
+      const query = filterValue.toLowerCase();
+      filteredUsers = filteredUsers.filter((user) => {
+        const haystack = [user.name, user.email, user.team, user.role];
+        return haystack.some((value) =>
+          (value ?? "").toString().toLowerCase().includes(query)
+        );
+      });
     }
     if (normalizedStatusFilter.length) {
       filteredUsers = filteredUsers.filter((user) =>
         normalizedStatusFilter.includes((user.status ?? "").toLowerCase())
       );
     }
+    if (normalizedTeamFilter.length) {
+      filteredUsers = filteredUsers.filter((user) =>
+        normalizedTeamFilter.includes((user.team ?? "").toLowerCase())
+      );
+    }
     return filteredUsers;
-  }, [filterValue, normalizedStatusFilter, users]);
+  }, [filterValue, normalizedStatusFilter, normalizedTeamFilter, users]);
 
   const pages = Math.ceil(filteredItems.length / rowsPerPage) || 1;
   const start = (page - 1) * rowsPerPage;
   const end = start + rowsPerPage;
   const items = filteredItems.slice(start, end);
 
-  const sortedItems = useMemo<UserSetting[]>(() => {
+  const sortedItems = useMemo<User[]>(() => {
     if (!sortDescriptor.column || sortDescriptor.column === "actions") {
       return items;
     }
     const column = sortDescriptor.column as UserColumnKey;
+    if (column === "actions") {
+      return items;
+    }
+
+    const getComparableValue = (user: User): string | number => {
+      const key = column as SortableUserColumnKey;
+      switch (key) {
+        case "id":
+          return user.id ?? "";
+        case "name":
+          return user.name ?? "";
+        case "role":
+          return user.role ?? "";
+        case "team":
+          return user.team ?? "";
+        case "email":
+          return user.email ?? "";
+        case "status":
+          return user.status ?? "";
+        default:
+          return "";
+      }
+    };
+
     return [...items].sort((a, b) => {
-      const first = a[column];
-      const second = b[column];
+      const first = getComparableValue(a);
+      const second = getComparableValue(b);
       const normalize = (value: unknown) => {
         if (value == null) return "";
         if (typeof value === "number") return value;
@@ -369,14 +439,15 @@ export default function UserSettings() {
       const cmp = firstValue < secondValue ? -1 : firstValue > secondValue ? 1 : 0;
       return sortDescriptor.direction === "descending" ? -cmp : cmp;
     });
-  }, [sortDescriptor, items, users]);
+  }, [sortDescriptor, items]);
 
   const renderCell = useCallback(
-    (user: UserSetting, columnKey: Key) => {
-      switch (columnKey) {
+    (user: User, columnKey: Key) => {
+      const key = columnKey as UserColumnKey;
+      switch (key) {
         case "name":
         return (
-          <User
+          <UserAvatar
             avatarProps={{ radius: "lg", src: user.avatar }}
             description={user.email}
             name={user.name}
@@ -386,9 +457,19 @@ export default function UserSettings() {
         return (
           <div className="flex flex-col">
             <p className="text-bold text-small capitalize">{user.role}</p>
-            <p className="text-bold text-tiny capitalize text-default-400">{user.team}</p>
+            <p className="text-bold text-tiny capitalize text-default-400">{capitalize(user.team)}</p>
           </div>
         );
+        case "team":
+          return capitalize(user.team);
+        case "email":
+          return user.email ? (
+            <a className="text-secondary" href={`mailto:${user.email}`}>{user.email}</a>
+          ) : (
+            <span className="text-default-300">N/A</span>
+          );
+        case "id":
+          return user.id.slice(0, 8).toUpperCase();
         case "status":
         const statusKey = (user.status ?? "active").toLowerCase() as keyof typeof statusColorMap;
         return (
@@ -442,7 +523,7 @@ export default function UserSettings() {
         );
 
         default:
-        return user[columnKey as UserColumnKey] ?? "";
+        return "";
     }
     },
     [handleDelete, handleEdit, handleView]
@@ -500,15 +581,39 @@ export default function UserSettings() {
                 disallowEmptySelection
                 aria-label="Status Filter"
                 closeOnSelect={false}
+                items={statusMenuItems}
                 selectedKeys={statusFilter}
                 selectionMode="multiple"
                 onSelectionChange={(keys) => setStatusFilter(keys as Set<Key>)}
               >
-                {statusOptions.map((status) => (
+                {(status) => (
                   <DropdownItem key={status.uid} className="capitalize">
-                    {capitalize(status.name)}
+                    {status.uid === "all" ? "All Statuses" : capitalize(status.name)}
                   </DropdownItem>
-                ))}
+                )}
+              </DropdownMenu>
+            </Dropdown>
+
+            <Dropdown>
+              <DropdownTrigger className="hidden sm:flex">
+                <Button endContent={<ChevronDownIcon />} variant="flat">
+                  Team
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu
+                disallowEmptySelection
+                aria-label="Team Filter"
+                closeOnSelect={false}
+                items={teamMenuItems}
+                selectedKeys={teamFilter}
+                selectionMode="multiple"
+                onSelectionChange={(keys) => setTeamFilter(keys as Set<Key>)}
+              >
+                {(team) => (
+                  <DropdownItem key={team.uid} className="capitalize">
+                    {team.uid === "all" ? "All Teams" : team.name}
+                  </DropdownItem>
+                )}
               </DropdownMenu>
             </Dropdown>
 
@@ -522,15 +627,16 @@ export default function UserSettings() {
                 disallowEmptySelection
                 aria-label="Table Columns"
                 closeOnSelect={false}
+                items={columnMenuItems}
                 selectedKeys={visibleColumns}
                 selectionMode="multiple"
                 onSelectionChange={(keys) => setVisibleColumns(keys as Set<Key>)}
               >
-                {columns.map((column) => (
+                {(column) => (
                   <DropdownItem key={column.uid} className="capitalize">
-                    {capitalize(column.name)}
+                    {column.label}
                   </DropdownItem>
-                ))}
+                )}
               </DropdownMenu>
             </Dropdown>
 
@@ -559,7 +665,7 @@ export default function UserSettings() {
         </div>
       </div>
     );
-  }, [filterValue, statusFilter, visibleColumns, onRowsPerPageChange, onSearchChange, users]);
+  }, [filterValue, statusFilter, teamFilter, visibleColumns, onRowsPerPageChange, onSearchChange, users, isAddModalOpen]);
 
   const bottomContent = useMemo(() => {
     return (
@@ -602,7 +708,7 @@ export default function UserSettings() {
         </div>
       </div>
     );
-  }, [selectedKeys, page, pages, filteredItems.length, users]);
+  }, [selectedKeys, page, pages, filteredItems.length]);
 
   return (
     <>
@@ -654,6 +760,11 @@ export default function UserSettings() {
     </>
   );
 }
+
+
+
+
+
 
 
 
