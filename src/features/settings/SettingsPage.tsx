@@ -250,26 +250,66 @@ const handleSave = () => {
               ].join(" "),
             }}
           >
-            <Tab key="company" title="Company">
+            <Tab
+              key="company"
+              title={
+                <span className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" aria-hidden="true" />
+                  Company
+                </span>
+              }
+            >
               <CompanySettings />
             </Tab>
 
-            <Tab key="pricing" title="Pricing">
+            <Tab
+              key="pricing"
+              title={
+                <span className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" aria-hidden="true" />
+                  Pricing
+                </span>
+              }
+            >
               <PricingSettings />
             </Tab>
 
-            <Tab key="templates" title="Templates">
+            <Tab
+              key="templates"
+              title={
+                <span className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                  Templates
+                </span>
+              }
+            >
               <TemplateSettings
                 quoteTemplate={quoteTemplate}
                 setQuoteTemplate={setQuoteTemplate}
               />
             </Tab>
 
-            <Tab key="users" title="Users">
+            <Tab
+              key="users"
+              title={
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4" aria-hidden="true" />
+                  Users
+                </span>
+              }
+            >
               <UserSettings />
             </Tab>
 
-            <Tab key="integrations" title="Integrations">
+            <Tab
+              key="integrations"
+              title={
+                <span className="flex items-center gap-2">
+                  <Plug className="h-4 w-4" aria-hidden="true" />
+                  Integrations
+                </span>
+              }
+            >
               <IntegrationSettings />
             </Tab>
           </Tabs>
