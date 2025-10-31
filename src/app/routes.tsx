@@ -11,18 +11,19 @@ import ProtectedRoute from "@/core/routing/ProtectedRoute";
 import OnboardingPage from "@/features/onboarding/OnboardingPage";
 
 export const router = createBrowserRouter([
-  // Public routes
+  // Public routes (no protection)
   { path: "/login", element: <Login /> },
+  { path: "/onboarding", element: <OnboardingPage /> },
 
-  // Protected routes
+  // Protected routes (require auth & onboarding complete)
   {
     element: <ProtectedRoute />,
     children: [
       {
         element: <AppLayout />,
         children: [
-          { path: "/onboarding", element: <OnboardingPage /> },
           { path: "/", element: <Dashboard /> },
+          { path: "/dashboard", element: <Dashboard /> },
           { path: "/estimator", element: <EstimatorPage /> },
           { path: "/jobs", element: <Jobs /> },
           { path: "/jobs/:id", element: <JobDetail /> },
