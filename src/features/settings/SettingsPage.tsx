@@ -19,6 +19,9 @@ import { toast } from "sonner";
 import { Building2, DollarSign, FileText, Users, Plug } from "lucide-react";
 import type { User, Team, PayType } from "@/types/user";
 import { TEAM_OPTIONS } from "@/types/user";
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/react";
+import { useMediaQuery } from "@react-hook/media-query";
+
 
 const PAY_TYPES: PayType[] = ["Hourly", "Percentage", "Salary", "None"];
 
@@ -124,6 +127,8 @@ export default function SettingsPage() {
   const updatePricing = usePricingSettings((s) => s.updatePricing);
   const setUsers = useUserSettings((s) => s.setUsers);
   const users = useUserSettings((s) => s.users);
+  const [activeTab, setActiveTab] = useState("company");
+  const isMobile = useMediaQuery("(max-width: 640px)");
 
   const [quoteTemplate, setQuoteTemplate] = useState(
     "All work performed according to manufacturer’s specifications. Payment due upon completion unless otherwise noted."
@@ -190,7 +195,7 @@ export default function SettingsPage() {
     updatePricing(nextPricing);
   }, [hydrated, settings, updateCompany, updatePricing, setUsers]);
 
-const handleSave = () => {
+  const handleSave = () => {
     updateSettings({
       companyName: company.companyName,
       address: company.address,
@@ -232,25 +237,68 @@ const handleSave = () => {
         </CardHeader>
 
         <CardBody>
-          <Tabs
-            aria-label="Settings Tabs"
-            color="secondary"
-            variant="solid"
-            classNames={{
-              tabList: [
-                // remove border, add soft background & shadow
-                "bg-default/30 dark:bg-background/30 backdrop-blur-sm",
-                "shadow-sm dark:shadow-md",
-                "rounded-xl p-1",
-                "transition-all duration-300",
-              ].join(" "),
-              tabContent: [
-                "text-[15px] font-normal transition-colors",
-                "text-foreground dark:text-foreground",
-              ].join(" "),
-            }}
-          >
-            <Tab
+          {isMobile ? (
+            // --- Mobile: HeroUI Dropdown ---
+            <Dropdown>
+              <DropdownTrigger>
+                <Button
+                  variant="flat"
+                  color="secondary"
+                  className="w-full justify-between bg-purple-500/20 border border-purple-400/30 text-white font-medium backdrop-blur-lg"
+                >
+                  {(() => {
+                    switch (activeTab) {
+                      case "company":
+                        return <>🏢 Company</>;
+                      case "pricing":
+                        return <>💵 Pricing</>;
+                      case "templates":
+                        return <>📄 Templates</>;
+                      case "users":
+                        return <>👥 Users</>;
+                      case "integrations":
+                        return <>🔌 Integrations</>;
+                      default:
+                        return <>Select Section</>;
+                    }
+                  })()}
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu
+                aria-label="Settings Menu"
+                variant="flat"
+                color="secondary"
+                className="min-w-[200px]"
+                onAction={(key) => setActiveTab(key as string)}
+                selectedKeys={[activeTab]}
+              >
+                <DropdownItem key="company">🏢 Company</DropdownItem>
+                <DropdownItem key="pricing">💵 Pricing</DropdownItem>
+                <DropdownItem key="templates">📄 Templates</DropdownItem>
+                <DropdownItem key="users">👥 Users</DropdownItem>
+                <DropdownItem key="integrations">🔌 Integrations</DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          ) : (
+            // --- Desktop: Original HeroUI Tabs (unchanged styling) ---
+            <Tabs
+              aria-label="Settings Tabs"
+              color="secondary"
+              variant="solid"
+              selectedKey={activeTab}
+              onSelectionChange={(key) => setActiveTab(key as string)}
+              classNames={{
+                tabList: [
+                  "bg-default/30 dark:bg-background/30 backdrop-blur-sm",
+                  "shadow-sm dark:shadow-md rounded-xl p-1 transition-all duration-300",
+                ].join(" "),
+                tabContent: [
+                  "text-[15px] font-normal transition-colors",
+                  "text-foreground dark:text-foreground",
+                ].join(" "),
+              }}
+            >
+              <Tab
               key="company"
               title={
                 <span className="flex items-center gap-2">
@@ -258,11 +306,8 @@ const handleSave = () => {
                   Company
                 </span>
               }
-            >
-              <CompanySettings />
-            </Tab>
-
-            <Tab
+            />
+              <Tab
               key="pricing"
               title={
                 <span className="flex items-center gap-2">
@@ -270,11 +315,8 @@ const handleSave = () => {
                   Pricing
                 </span>
               }
-            >
-              <PricingSettings />
-            </Tab>
-
-            <Tab
+            />
+              <Tab
               key="templates"
               title={
                 <span className="flex items-center gap-2">
@@ -282,14 +324,8 @@ const handleSave = () => {
                   Templates
                 </span>
               }
-            >
-              <TemplateSettings
-                quoteTemplate={quoteTemplate}
-                setQuoteTemplate={setQuoteTemplate}
-              />
-            </Tab>
-
-            <Tab
+            />
+              <Tab
               key="users"
               title={
                 <span className="flex items-center gap-2">
@@ -297,11 +333,8 @@ const handleSave = () => {
                   Users
                 </span>
               }
-            >
-              <UserSettings />
-            </Tab>
-
-            <Tab
+            />
+              <Tab
               key="integrations"
               title={
                 <span className="flex items-center gap-2">
@@ -309,10 +342,21 @@ const handleSave = () => {
                   Integrations
                 </span>
               }
-            >
-              <IntegrationSettings />
-            </Tab>
-          </Tabs>
+            />
+            </Tabs>
+          )}
+          <div className="mt-6">
+            {activeTab === "company" && <CompanySettings />}
+            {activeTab === "pricing" && <PricingSettings />}
+            {activeTab === "templates" && (
+              <TemplateSettings
+                quoteTemplate={quoteTemplate}
+                setQuoteTemplate={setQuoteTemplate}
+              />
+            )}
+            {activeTab === "users" && <UserSettings />}
+            {activeTab === "integrations" && <IntegrationSettings />}
+          </div>
 
           {/* --- Save Button --- */}
           <div className="flex justify-end mt-6">

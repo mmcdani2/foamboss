@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Card,
   CardHeader,
@@ -19,142 +21,300 @@ import {
   SelectItem,
   Chip,
   Progress,
+  Spinner,
 } from "@heroui/react";
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
-import { useMaterialStore } from "@/state/materialStore";
+import { useSupabase } from "@/core/providers/SupabaseProvider";
 
-export default function Material() {
-  const { materials, addMaterial, updateMaterial, removeMaterial } =
-    useMaterialStore();
+export default function MaterialSettings() {
+  const { supabase } = useSupabase();
 
-  // Modal state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // --- data state ---
+  const [categories, setCategories] = useState<any[]>([]);
+  const [types, setTypes] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- modal states ---
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
+
   const [editing, setEditing] = useState<any | null>(null);
 
-  // Form state
   const [form, setForm] = useState({
-    name: "",
-    foamType: "",
-    yield: "",
-    costSet: "",
+    material_name: "",
+    category_id: "",
+    material_type_id: "",
+    unit_price: "",
+    yield_per_unit: "",
+    unit_type: "",
+    quantity_on_hand: "",
+    notes: "",
   });
 
   const resetForm = () =>
-    setForm({ name: "", foamType: "", yield: "", costSet: "" });
+    setForm({
+      material_name: "",
+      category_id: "",
+      material_type_id: "",
+      unit_price: "",
+      yield_per_unit: "",
+      unit_type: "",
+      quantity_on_hand: "",
+      notes: "",
+    });
 
-  // ---------- ADD MATERIAL ----------
-  const handleAddMaterial = () => {
-    const { name, foamType, yield: yieldVal, costSet } = form;
-    if (!name || !foamType || !yieldVal || !costSet) {
-      toast.error("Please complete all fields before saving.");
+  // --- fetch data ---
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      try {
+        const [catRes, typeRes, matRes] = await Promise.all([
+          supabase.from("material_categories").select("*").order("category_name"),
+          supabase.from("material_types").select("*").order("type_name"),
+          supabase.from("material_pricing_yields").select("*, material_types(type_name, category_id)")
+        ]);
+        if (catRes.error) throw catRes.error;
+        if (typeRes.error) throw typeRes.error;
+        if (matRes.error) throw matRes.error;
+        setCategories(catRes.data ?? []);
+        setTypes(typeRes.data ?? []);
+        setMaterials(matRes.data ?? []);
+      } catch (err: any) {
+        toast.error(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, [supabase]);
+
+  // --- add new material ---
+  const handleAdd = async () => {
+    const { material_name, material_type_id, unit_price, yield_per_unit, unit_type, quantity_on_hand, notes } = form;
+    if (!material_name || !material_type_id || !unit_price || !yield_per_unit || !unit_type) {
+      toast.error("Please complete all required fields.");
       return;
     }
 
-    const costBdft = Number(costSet) / Number(yieldVal);
-
-    addMaterial({
-      id: crypto.randomUUID(),
-      name,
-      foamType,
-      yieldBdFt: Number(yieldVal),
-      costPerSet: Number(costSet),
-      costPerBdFt: parseFloat(costBdft.toFixed(3)),
-    });
-
-    toast.success(`Material "${name}" added successfully.`);
-    resetForm();
-    setIsAddModalOpen(false);
+    const { error } = await supabase.from("material_pricing_yields").insert([
+      {
+        material_name,
+        material_type_id,
+        unit_price: Number(unit_price),
+        yield_per_unit: Number(yield_per_unit),
+        unit_type,
+        quantity_on_hand: Number(quantity_on_hand) || 0,
+        notes,
+      },
+    ]);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`${material_name} added`);
+      resetForm();
+      setIsAddOpen(false);
+      const { data } = await supabase.from("material_pricing_yields").select("*, material_types(type_name, category_id)");
+      setMaterials(data ?? []);
+    }
   };
 
-  // ---------- EDIT MATERIAL ----------
-  const handleEditSave = () => {
-    const costBdft = Number(form.costSet) / Number(form.yield);
-    updateMaterial(editing.id, {
-      name: form.name,
-      foamType: form.foamType,
-      yieldBdFt: Number(form.yield),
-      costPerSet: Number(form.costSet),
-      costPerBdFt: parseFloat(costBdft.toFixed(3)),
-    });
-    toast.info(`"${form.name}" updated successfully.`);
-    resetForm();
-    setIsEditModalOpen(false);
+  // --- edit material ---
+  const handleEdit = async () => {
+    if (!editing) return;
+    const { error } = await supabase
+      .from("material_pricing_yields")
+      .update({
+        material_name: form.material_name,
+        material_type_id: form.material_type_id,
+        unit_price: Number(form.unit_price),
+        yield_per_unit: Number(form.yield_per_unit),
+        unit_type: form.unit_type,
+        quantity_on_hand: Number(form.quantity_on_hand) || 0,
+        notes: form.notes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", editing.id);
+
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`${form.material_name} updated`);
+      resetForm();
+      setIsEditOpen(false);
+      const { data } = await supabase.from("material_pricing_yields").select("*, material_types(type_name, category_id)");
+      setMaterials(data ?? []);
+    }
   };
 
-  // ---------- DELETE MATERIAL ----------
-  const handleDelete = (id: string) => {
-    const mat = materials.find((m) => m.id === id);
-    removeMaterial(id);
-    toast.warning(`Material "${mat?.name ?? "Unknown"}" deleted.`);
+  // --- delete material ---
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("material_pricing_yields").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.warning("Material deleted");
+      setMaterials((prev) => prev.filter((m) => m.id !== id));
+    }
   };
 
-  // ---------- ANALYTICS ----------
-  const totalCost = materials.reduce((sum, m) => sum + m.costPerSet, 0);
-  const topFoam =
+  // --- add new category ---
+  const [newCategory, setNewCategory] = useState({ name: "", description: "" });
+  const handleAddCategory = async () => {
+    if (!newCategory.name) return toast.error("Category name required");
+    const { error } = await supabase
+      .from("material_categories")
+      .insert([{ category_name: newCategory.name, description: newCategory.description }]);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Category added");
+      const { data } = await supabase.from("material_categories").select("*");
+      setCategories(data ?? []);
+      setIsAddCategoryOpen(false);
+      setNewCategory({ name: "", description: "" });
+    }
+  };
+
+  // --- add new type ---
+  const [newType, setNewType] = useState({ name: "", category_id: "", unit: "" });
+  const handleAddType = async () => {
+    if (!newType.name || !newType.category_id) return toast.error("Type name and category required");
+    const { error } = await supabase
+      .from("material_types")
+      .insert([{ type_name: newType.name, category_id: newType.category_id, default_unit: newType.unit }]);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Material type added");
+      const { data } = await supabase.from("material_types").select("*");
+      setTypes(data ?? []);
+      setIsAddTypeOpen(false);
+      setNewType({ name: "", category_id: "", unit: "" });
+    }
+  };
+  
+
+  const totalInventoryValue = materials.reduce(
+    (sum, m) => sum + (Number(m.unit_price || 0) * Number(m.quantity_on_hand || 0)),
+    0
+  );
+  const topYield =
     materials.length > 0
-      ? materials.reduce((a, b) => (a.yieldBdFt > b.yieldBdFt ? a : b))
+      ? materials.reduce((a, b) =>
+        (a.yield_per_unit ?? 0) > (b.yield_per_unit ?? 0) ? a : b
+      )
       : null;
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Spinner color="secondary" label="Loading materials..." />
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-secondary">Materials</h1>
-        <Button
-          color="secondary"
-          startContent={<Plus className="w-5 h-5" />}
-          onPress={() => {
-            resetForm();
-            setIsAddModalOpen(true);
-          }}
-        >
-          Add Material
-        </Button>
-      </div>
-
-      {/* --- TABLE --- */}
-      <Card shadow="md" className="bg-content2 border border-default/20 mb-6">
-        <CardHeader>
-          <h2 className="font-semibold text-lg text-foreground">
-            Material List
-          </h2>
-        </CardHeader>
-        <CardBody className="overflow-x-auto">
-          <Table
-            aria-label="Material Table"
-            shadow="none"
-            classNames={{
-              th: "bg-content3 text-default-600 font-semibold",
-              td: "text-foreground text-sm",
+        <h1 className="text-3xl font-bold text-secondary">Material Pricing & Inventory</h1>
+        <div className="flex gap-2">
+          <Button
+            color="secondary"
+            startContent={<FolderPlus className="w-5 h-5" />}
+            variant="flat"
+            onPress={() => setIsAddCategoryOpen(true)}
+          >
+            Add Category / Type
+          </Button>
+          <Button
+            color="secondary"
+            startContent={<Plus className="w-5 h-5" />}
+            onPress={() => {
+              resetForm();
+              setIsAddOpen(true);
             }}
           >
+            Add Material
+          </Button>
+        </div>
+      </div>
+
+      {/* --- MATERIAL TABLE --- */}
+      <Card shadow="md" className="bg-content2 border border-default/20 mb-6">
+        <CardHeader>
+          <h2 className="font-semibold text-lg text-foreground">Materials</h2>
+        </CardHeader>
+        <CardBody className="overflow-x-auto">
+          <Table aria-label="Material Table" isStriped>
             <TableHeader>
-              <TableColumn>Material Name</TableColumn>
-              <TableColumn>Foam Type</TableColumn>
-              <TableColumn>Yield (bdft/set)</TableColumn>
-              <TableColumn>Cost/Set ($)</TableColumn>
-              <TableColumn>Cost/BdFt ($)</TableColumn>
+              <TableColumn>Name</TableColumn>
+              <TableColumn>Category</TableColumn>
+              <TableColumn>Type</TableColumn>
+              <TableColumn>Unit</TableColumn>
+              <TableColumn>Price ($)</TableColumn>
+              <TableColumn>Yield</TableColumn>
+              <TableColumn>On Hand</TableColumn>
+              <TableColumn>Status</TableColumn>
+              <TableColumn>Cost / BdFt ($)</TableColumn>
               <TableColumn>Actions</TableColumn>
             </TableHeader>
-            <TableBody emptyContent="No materials added yet.">
-              {materials.map((mat) => (
-                <TableRow key={mat.id}>
-                  <TableCell>{mat.name}</TableCell>
+
+            <TableBody emptyContent="No materials found.">
+              {materials.map((m) => (
+                <TableRow
+                  key={m.id}
+                  className={
+                    Number(m.quantity_on_hand) === 0
+                      ? "bg-red-500/5"
+                      : Number(m.quantity_on_hand) < 5
+                        ? "bg-yellow-500/5"
+                        : ""
+                  }
+                >
+                  <TableCell>{m.material_name}</TableCell>
                   <TableCell>
-                    <Chip
-                      color={
-                        mat.foamType === "Open Cell" ? "primary" : "secondary"
-                      }
-                      variant="flat"
-                    >
-                      {mat.foamType}
-                    </Chip>
+                    {categories.find((c) => c.id === m.material_types?.category_id)?.category_name ?? "—"}
                   </TableCell>
-                  <TableCell>{mat.yieldBdFt.toLocaleString()}</TableCell>
-                  <TableCell>${mat.costPerSet.toFixed(2)}</TableCell>
-                  <TableCell>${mat.costPerBdFt.toFixed(3)}</TableCell>
+                  <TableCell>{m.material_types?.type_name ?? "—"}</TableCell>
+                  <TableCell>{m.unit_type}</TableCell>
+                  <TableCell>${Number(m.unit_price).toFixed(2)}</TableCell>
+                  <TableCell>{m.yield_per_unit}</TableCell>
+                  <TableCell>{m.quantity_on_hand}</TableCell>
+
+                  {/* Status Chip */}
+                  <TableCell>
+                    {Number(m.quantity_on_hand) === 0 ? (
+                      <Chip
+                        color="danger"
+                        variant="flat"
+                        className="bg-red-500/10 text-red-400 border border-red-500/20 font-medium"
+                        startContent={<span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />}
+                      >
+                        Out of Stock
+                      </Chip>
+                    ) : Number(m.quantity_on_hand) < 5 ? (
+                      <Chip
+                        color="warning"
+                        variant="flat"
+                        className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 font-medium"
+                        startContent={<span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1" />}
+                      >
+                        Reorder Soon
+                      </Chip>
+                    ) : (
+                      <Chip
+                        color="success"
+                        variant="flat"
+                        className="bg-green-500/10 text-green-400 border border-green-500/20 font-medium"
+                        startContent={<span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />}
+                      >
+                        In Stock
+                      </Chip>
+                    )}
+                  </TableCell>
+
+                  <TableCell>${Number(m.cost_per_bdft ?? 0).toFixed(2)}</TableCell>
+
+                  {/* Actions */}
                   <TableCell>
                     <div className="flex gap-2">
                       <Button
@@ -162,14 +322,18 @@ export default function Material() {
                         color="secondary"
                         variant="flat"
                         onPress={() => {
-                          setEditing(mat);
+                          setEditing(m);
                           setForm({
-                            name: mat.name,
-                            foamType: mat.foamType,
-                            yield: mat.yieldBdFt.toString(),
-                            costSet: mat.costPerSet.toString(),
+                            material_name: m.material_name,
+                            category_id: m.material_types?.category_id ?? "",
+                            material_type_id: m.material_type_id,
+                            unit_price: m.unit_price,
+                            yield_per_unit: m.yield_per_unit,
+                            unit_type: m.unit_type,
+                            quantity_on_hand: m.quantity_on_hand,
+                            notes: m.notes ?? "",
                           });
-                          setIsEditModalOpen(true);
+                          setIsEditOpen(true);
                         }}
                       >
                         Edit
@@ -178,7 +342,7 @@ export default function Material() {
                         size="sm"
                         color="danger"
                         variant="flat"
-                        onPress={() => handleDelete(mat.id)}
+                        onPress={() => handleDelete(m.id)}
                       >
                         Delete
                       </Button>
@@ -188,6 +352,7 @@ export default function Material() {
               ))}
             </TableBody>
           </Table>
+
         </CardBody>
       </Card>
 
@@ -195,131 +360,82 @@ export default function Material() {
       {materials.length > 0 && (
         <Card shadow="md" className="bg-content2 border border-default/20">
           <CardHeader>
-            <h2 className="font-semibold text-lg text-foreground">
-              Material Analytics
-            </h2>
+            <h2 className="font-semibold text-lg text-foreground">Summary</h2>
           </CardHeader>
           <CardBody className="grid sm:grid-cols-2 gap-6">
             <div>
-              <p className="text-default-500 text-sm">
-                Total Material Cost This Month
-              </p>
+              <p className="text-default-500 text-sm">Total Inventory Value</p>
               <p className="text-2xl font-semibold text-success">
-                ${totalCost.toLocaleString()}
+                ${totalInventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
-              <Progress
-                value={(totalCost / 50000) * 100}
-                color="success"
-                className="mt-2"
-                aria-label="Material Cost Progress"
-              />
+              <Progress value={(totalInventoryValue / 100000) * 100} color="success" className="mt-2" />
             </div>
             <div>
-              <p className="text-default-500 text-sm">Top Used Foam</p>
+              <p className="text-default-500 text-sm">Top Yield Material</p>
               <p className="text-2xl font-semibold text-secondary">
-                {topFoam?.name ?? "N/A"}
+                {topYield?.material_name ?? "N/A"}
               </p>
-              <p className="text-sm text-default-500">{topFoam?.foamType}</p>
+              <p className="text-sm text-default-500">
+                {topYield?.material_types?.type_name}
+              </p>
             </div>
           </CardBody>
         </Card>
       )}
 
-      {/* --- ADD MODAL --- */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        placement="center"
-        backdrop="blur"
-        motionProps={{ initial: { opacity: 0 }, animate: { opacity: 1 } }}
-      >
+      {/* ADD / EDIT MATERIAL MODAL */}
+      <Modal isOpen={isAddOpen || isEditOpen} onClose={() => { setIsAddOpen(false); setIsEditOpen(false); }} placement="center" backdrop="blur">
         <ModalContent className="bg-content2 border border-default/20">
           <ModalHeader className="text-secondary font-semibold">
-            Add Material
+            {isEditOpen ? "Edit Material" : "Add Material"}
           </ModalHeader>
           <ModalBody className="space-y-4">
-            <Input
-              label="Material Name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-            <Select
-              label="Foam Type"
-              selectedKeys={form.foamType ? [form.foamType] : []}
-              onChange={(e) => setForm({ ...form, foamType: e.target.value })}
-            >
-              <SelectItem key="Open Cell">Open Cell</SelectItem>
-              <SelectItem key="Closed Cell">Closed Cell</SelectItem>
+            <Input label="Material Name" value={form.material_name} onChange={(e) => setForm({ ...form, material_name: e.target.value })} />
+            <Select label="Category" selectedKeys={form.category_id ? [form.category_id] : []} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
+              {categories.map((c) => <SelectItem key={c.id}>{c.category_name}</SelectItem>)}
             </Select>
-            <Input
-              type="number"
-              label="Yield (bdft/set)"
-              value={form.yield}
-              onChange={(e) => setForm({ ...form, yield: e.target.value })}
-            />
-            <Input
-              type="number"
-              label="Cost per Set ($)"
-              value={form.costSet}
-              onChange={(e) => setForm({ ...form, costSet: e.target.value })}
-            />
+            <Select label="Material Type" selectedKeys={form.material_type_id ? [form.material_type_id] : []} onChange={(e) => setForm({ ...form, material_type_id: e.target.value })}>
+              {types.filter((t) => t.category_id === form.category_id).map((t) => <SelectItem key={t.id}>{t.type_name}</SelectItem>)}
+            </Select>
+            <Input label="Unit Type (e.g. set, 5gal, roll)" value={form.unit_type} onChange={(e) => setForm({ ...form, unit_type: e.target.value })} />
+            <Input type="number" label="Unit Price ($)" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} />
+            <Input type="number" label="Yield per Unit" value={form.yield_per_unit} onChange={(e) => setForm({ ...form, yield_per_unit: e.target.value })} />
+            <Input type="number" label="On-Hand Quantity" value={form.quantity_on_hand} onChange={(e) => setForm({ ...form, quantity_on_hand: e.target.value })} />
+            <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setIsAddModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button color="secondary" onPress={handleAddMaterial}>
-              Save
-            </Button>
+            <Button variant="flat" onPress={() => { setIsAddOpen(false); setIsEditOpen(false); }}>Cancel</Button>
+            <Button color="secondary" onPress={isEditOpen ? handleEdit : handleAdd}>Save</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
-      {/* --- EDIT MODAL --- */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        placement="center"
-        backdrop="blur"
-      >
+      {/* ADD CATEGORY / TYPE MODAL */}
+      <Modal isOpen={isAddCategoryOpen || isAddTypeOpen} onClose={() => { setIsAddCategoryOpen(false); setIsAddTypeOpen(false); }} placement="center" backdrop="blur">
         <ModalContent className="bg-content2 border border-default/20">
           <ModalHeader className="text-secondary font-semibold">
-            Edit Material
+            Add Category or Material Type
           </ModalHeader>
-          <ModalBody className="space-y-4">
-            <Input
-              label="Material Name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-            <Select
-              label="Foam Type"
-              selectedKeys={form.foamType ? [form.foamType] : []}
-              onChange={(e) => setForm({ ...form, foamType: e.target.value })}
-            >
-              <SelectItem key="Open Cell">Open Cell</SelectItem>
-              <SelectItem key="Closed Cell">Closed Cell</SelectItem>
-            </Select>
-            <Input
-              type="number"
-              label="Yield (bdft/set)"
-              value={form.yield}
-              onChange={(e) => setForm({ ...form, yield: e.target.value })}
-            />
-            <Input
-              type="number"
-              label="Cost per Set ($)"
-              value={form.costSet}
-              onChange={(e) => setForm({ ...form, costSet: e.target.value })}
-            />
+          <ModalBody className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">New Category</h3>
+              <Input label="Category Name" value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} />
+              <Input label="Description (optional)" value={newCategory.description} onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })} />
+              <Button size="sm" color="secondary" className="mt-2" onPress={handleAddCategory}>Add Category</Button>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">New Material Type</h3>
+              <Select label="Assign to Category" selectedKeys={newType.category_id ? [newType.category_id] : []} onChange={(e) => setNewType({ ...newType, category_id: e.target.value })}>
+                {categories.map((c) => <SelectItem key={c.id}>{c.category_name}</SelectItem>)}
+              </Select>
+              <Input label="Type Name" value={newType.name} onChange={(e) => setNewType({ ...newType, name: e.target.value })} />
+              <Input label="Default Unit (optional)" value={newType.unit} onChange={(e) => setNewType({ ...newType, unit: e.target.value })} />
+              <Button size="sm" color="secondary" className="mt-2" onPress={handleAddType}>Add Type</Button>
+            </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setIsEditModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button color="secondary" onPress={handleEditSave}>
-              Save Changes
-            </Button>
+            <Button variant="flat" onPress={() => { setIsAddCategoryOpen(false); setIsAddTypeOpen(false); }}>Close</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
