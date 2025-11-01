@@ -1,4 +1,3 @@
-// src/features/materials/lib/materials.api.ts
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface MaterialPayload {
@@ -60,9 +59,9 @@ export async function fetchCategories(supabase: SupabaseClient) {
 
 export async function insertCategory(
   supabase: SupabaseClient,
-  payload: CategoryPayload
+  payload: { category_name: string; description?: string; business_id: string }
 ) {
-  return supabase.from("material_categories").insert([payload]);
+  return await supabase.from("material_categories").insert([payload]);
 }
 
 // --- Types ---
