@@ -23,19 +23,38 @@ import {
   Progress,
   Spinner,
 } from "@heroui/react";
+import {
+  fetchMaterials,
+  insertMaterial,
+  updateMaterial,
+  deleteMaterial,
+  fetchCategories,
+  fetchTypes,
+  insertCategory,
+  insertType,
+} from "@/features/materials/lib/materials.api";
 import { useState, useEffect } from "react";
 import { Plus, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useSupabase } from "@/core/providers/SupabaseProvider";
+import { useMaterialsData } from "@/features/materials/hooks/useMaterialsData";
+
 
 export default function MaterialSettings() {
   const { supabase } = useSupabase();
 
   // --- data state ---
-  const [categories, setCategories] = useState<any[]>([]);
-  const [types, setTypes] = useState<any[]>([]);
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    categories,
+    types,
+    materials,
+    loading,
+    addMaterial,
+    editMaterial,
+    removeMaterial,
+    addCategory,
+    addType,
+  } = useMaterialsData(supabase);
 
   // --- modal states ---
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -68,31 +87,6 @@ export default function MaterialSettings() {
       notes: "",
     });
 
-  // --- fetch data ---
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);
-      try {
-        const [catRes, typeRes, matRes] = await Promise.all([
-          supabase.from("material_categories").select("*").order("category_name"),
-          supabase.from("material_types").select("*").order("type_name"),
-          supabase.from("material_pricing_yields").select("*, material_types(type_name, category_id)")
-        ]);
-        if (catRes.error) throw catRes.error;
-        if (typeRes.error) throw typeRes.error;
-        if (matRes.error) throw matRes.error;
-        setCategories(catRes.data ?? []);
-        setTypes(typeRes.data ?? []);
-        setMaterials(matRes.data ?? []);
-      } catch (err: any) {
-        toast.error(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAll();
-  }, [supabase]);
-
   // --- add new material ---
   const handleAdd = async () => {
     const { material_name, material_type_id, unit_price, yield_per_unit, unit_type, quantity_on_hand, notes } = form;
@@ -101,98 +95,77 @@ export default function MaterialSettings() {
       return;
     }
 
-    const { error } = await supabase.from("material_pricing_yields").insert([
-      {
-        material_name,
-        material_type_id,
-        unit_price: Number(unit_price),
-        yield_per_unit: Number(yield_per_unit),
-        unit_type,
-        quantity_on_hand: Number(quantity_on_hand) || 0,
-        notes,
-      },
-    ]);
-    if (error) toast.error(error.message);
-    else {
-      toast.success(`${material_name} added`);
-      resetForm();
-      setIsAddOpen(false);
-      const { data } = await supabase.from("material_pricing_yields").select("*, material_types(type_name, category_id)");
-      setMaterials(data ?? []);
-    }
+    await addMaterial({
+      material_name,
+      material_type_id,
+      unit_price: Number(unit_price),
+      yield_per_unit: Number(yield_per_unit),
+      unit_type,
+      quantity_on_hand: Number(quantity_on_hand) || 0,
+      notes,
+    });
+
+    resetForm();
+    setIsAddOpen(false);
   };
+
+
 
   // --- edit material ---
   const handleEdit = async () => {
     if (!editing) return;
-    const { error } = await supabase
-      .from("material_pricing_yields")
-      .update({
-        material_name: form.material_name,
-        material_type_id: form.material_type_id,
-        unit_price: Number(form.unit_price),
-        yield_per_unit: Number(form.yield_per_unit),
-        unit_type: form.unit_type,
-        quantity_on_hand: Number(form.quantity_on_hand) || 0,
-        notes: form.notes,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", editing.id);
 
-    if (error) toast.error(error.message);
-    else {
-      toast.success(`${form.material_name} updated`);
-      resetForm();
-      setIsEditOpen(false);
-      const { data } = await supabase.from("material_pricing_yields").select("*, material_types(type_name, category_id)");
-      setMaterials(data ?? []);
-    }
+    await editMaterial(editing.id, {
+      material_name: form.material_name,
+      material_type_id: form.material_type_id,
+      unit_price: Number(form.unit_price),
+      yield_per_unit: Number(form.yield_per_unit),
+      unit_type: form.unit_type,
+      quantity_on_hand: Number(form.quantity_on_hand) || 0,
+      notes: form.notes,
+      updated_at: new Date().toISOString(),
+    });
+
+    resetForm();
+    setIsEditOpen(false);
   };
+
+
 
   // --- delete material ---
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("material_pricing_yields").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else {
-      toast.warning("Material deleted");
-      setMaterials((prev) => prev.filter((m) => m.id !== id));
-    }
+    await removeMaterial(id);
   };
+
+
 
   // --- add new category ---
   const [newCategory, setNewCategory] = useState({ name: "", description: "" });
   const handleAddCategory = async () => {
     if (!newCategory.name) return toast.error("Category name required");
-    const { error } = await supabase
-      .from("material_categories")
-      .insert([{ category_name: newCategory.name, description: newCategory.description }]);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Category added");
-      const { data } = await supabase.from("material_categories").select("*");
-      setCategories(data ?? []);
-      setIsAddCategoryOpen(false);
-      setNewCategory({ name: "", description: "" });
-    }
+    await addCategory({
+      category_name: newCategory.name,
+      description: newCategory.description,
+    });
+    setIsAddCategoryOpen(false);
+    setNewCategory({ name: "", description: "" });
   };
+
 
   // --- add new type ---
   const [newType, setNewType] = useState({ name: "", category_id: "", unit: "" });
   const handleAddType = async () => {
     if (!newType.name || !newType.category_id) return toast.error("Type name and category required");
-    const { error } = await supabase
-      .from("material_types")
-      .insert([{ type_name: newType.name, category_id: newType.category_id, default_unit: newType.unit }]);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Material type added");
-      const { data } = await supabase.from("material_types").select("*");
-      setTypes(data ?? []);
-      setIsAddTypeOpen(false);
-      setNewType({ name: "", category_id: "", unit: "" });
-    }
+    await addType({
+      type_name: newType.name,
+      category_id: newType.category_id,
+      default_unit: newType.unit,
+    });
+    setIsAddTypeOpen(false);
+    setNewType({ name: "", category_id: "", unit: "" });
   };
-  
+
+
 
   const totalInventoryValue = materials.reduce(
     (sum, m) => sum + (Number(m.unit_price || 0) * Number(m.quantity_on_hand || 0)),
@@ -417,25 +390,110 @@ export default function MaterialSettings() {
             Add Category or Material Type
           </ModalHeader>
           <ModalBody className="space-y-6">
+            {/* New Category */}
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">New Category</h3>
-              <Input label="Category Name" value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} />
-              <Input label="Description (optional)" value={newCategory.description} onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })} />
-              <Button size="sm" color="secondary" className="mt-2" onPress={handleAddCategory}>Add Category</Button>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                New Category
+              </h3>
+              <Input
+                label="Category Name"
+                value={newCategory.name}
+                onChange={(e) =>
+                  setNewCategory({ ...newCategory, name: e.target.value })
+                }
+              />
+              <Input
+                label="Description (optional)"
+                value={newCategory.description}
+                onChange={(e) =>
+                  setNewCategory({
+                    ...newCategory,
+                    description: e.target.value,
+                  })
+                }
+                className="mt-2"
+              />
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  color="secondary"
+                  onPress={handleAddCategory}
+                  isDisabled={!newCategory.name}
+                >
+                  Add Category
+                </Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  onPress={() => setNewCategory({ name: "", description: "" })}
+                >
+                  Clear
+                </Button>
+              </div>
             </div>
 
+            {/* New Material Type */}
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">New Material Type</h3>
-              <Select label="Assign to Category" selectedKeys={newType.category_id ? [newType.category_id] : []} onChange={(e) => setNewType({ ...newType, category_id: e.target.value })}>
-                {categories.map((c) => <SelectItem key={c.id}>{c.category_name}</SelectItem>)}
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                New Material Type
+              </h3>
+              <Select
+                label="Assign to Category"
+                selectedKeys={newType.category_id ? [newType.category_id] : []}
+                onChange={(e) =>
+                  setNewType({ ...newType, category_id: e.target.value })
+                }
+              >
+                {categories.map((c) => (
+                  <SelectItem key={c.id}>{c.category_name}</SelectItem>
+                ))}
               </Select>
-              <Input label="Type Name" value={newType.name} onChange={(e) => setNewType({ ...newType, name: e.target.value })} />
-              <Input label="Default Unit (optional)" value={newType.unit} onChange={(e) => setNewType({ ...newType, unit: e.target.value })} />
-              <Button size="sm" color="secondary" className="mt-2" onPress={handleAddType}>Add Type</Button>
+
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  label="Type Name"
+                  value={newType.name}
+                  onChange={(e) => setNewType({ ...newType, name: e.target.value })}
+                />
+                <Input
+                  label="Default Unit (optional)"
+                  value={newType.unit}
+                  onChange={(e) => setNewType({ ...newType, unit: e.target.value })}
+                />
+              </div>
+
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  color="secondary"
+                  onPress={handleAddType}
+                  isDisabled={!newType.name || !newType.category_id}
+                >
+                  Add Type
+                </Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  onPress={() =>
+                    setNewType({ name: "", category_id: "", unit: "" })
+                  }
+                >
+                  Clear
+                </Button>
+              </div>
             </div>
           </ModalBody>
+
           <ModalFooter>
-            <Button variant="flat" onPress={() => { setIsAddCategoryOpen(false); setIsAddTypeOpen(false); }}>Close</Button>
+            <Button
+              variant="flat"
+              onPress={() => {
+                setIsAddCategoryOpen(false);
+                setIsAddTypeOpen(false);
+              }}
+            >
+              Close
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
