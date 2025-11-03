@@ -1,105 +1,141 @@
 import {
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    Button,
-    Chip,
+  Table,
+  TableHeader,
+  TableColumn,
+  TableBody,
+  TableRow,
+  TableCell,
+  Button,
+  Chip,
 } from "@heroui/react";
-import { FC } from "react";
+import { FC, useMemo } from "react";
 
 interface MaterialTableProps {
-    materials: any[];
-    categories: any[];
-    onEdit: (material: any) => void;
-    onDelete: (id: string) => void;
+  materials: any[];
+  categories: any[];
+  onEdit: (material: any) => void;
+  onDelete: (id: string) => void;
 }
 
 export const MaterialTable: FC<MaterialTableProps> = ({
-    materials,
-    categories,
-    onEdit,
-    onDelete,
+  materials,
+  categories,
+  onEdit,
+  onDelete,
 }) => {
-    return (
-        <Table aria-label="Material Table" isStriped>
-            <TableHeader>
-                <TableColumn>Name</TableColumn>
-                <TableColumn>Category</TableColumn>
-                <TableColumn>Type</TableColumn>
-                <TableColumn>Unit</TableColumn>
-                <TableColumn>Price ($)</TableColumn>
-                <TableColumn>Yield</TableColumn>
-                <TableColumn>On Hand</TableColumn>
-                <TableColumn>Status</TableColumn>
-                <TableColumn>Cost / BdFt ($)</TableColumn>
-                <TableColumn>Actions</TableColumn>
-            </TableHeader>
+  const categoryLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((c) => {
+      if (c?.id) map.set(c.id, c.category_name ?? "");
+    });
+    return map;
+  }, [categories]);
 
-            <TableBody emptyContent="No materials found.">
-                {materials.map((m) => (
-                    <TableRow
-                        key={m.id}
-                        className={
-                            Number(m.quantity_on_hand) === 0
-                                ? "bg-red-500/5"
-                                : Number(m.quantity_on_hand) < 5
-                                    ? "bg-yellow-500/5"
-                                    : ""
-                        }
-                    >
-                        <TableCell>{m.material_name}</TableCell>
-                        <TableCell>
-                            {categories.find(
-                                (c) => c.id === m.material_types?.category_id
-                            )?.category_name ?? "â€”"}
-                        </TableCell>
-                        <TableCell>{m.material_types?.type_name ?? "â€”"}</TableCell>
-                        <TableCell>{m.unit_type}</TableCell>
-                        <TableCell>${Number(m.unit_price).toFixed(2)}</TableCell>
-                        <TableCell>{m.yield_per_unit}</TableCell>
-                        <TableCell>{m.quantity_on_hand}</TableCell>
-                        <TableCell>
-                            {Number(m.quantity_on_hand) === 0 ? (
-                                <Chip color="danger" variant="flat">
-                                    Out of Stock
-                                </Chip>
-                            ) : Number(m.quantity_on_hand) < 5 ? (
-                                <Chip color="warning" variant="flat">
-                                    Reorder Soon
-                                </Chip>
-                            ) : (
-                                <Chip color="success" variant="flat">
-                                    In Stock
-                                </Chip>
-                            )}
-                        </TableCell>
-                        <TableCell>${Number(m.cost_per_bdft ?? 0).toFixed(2)}</TableCell>
-                        <TableCell>
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    color="secondary"
-                                    variant="flat"
-                                    onPress={() => onEdit(m)}
-                                >
-                                    Edit
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    color="danger"
-                                    variant="flat"
-                                    onPress={() => onDelete(m.id)}
-                                >
-                                    Delete
-                                </Button>
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-    );
+  return (
+    <Table
+      aria-label="Material inventory table"
+      isStriped
+      isCompact
+      removeWrapper
+      className="min-w-full"
+    >
+      <TableHeader>
+        <TableColumn scope="col">Name</TableColumn>
+        <TableColumn scope="col">Category</TableColumn>
+        <TableColumn scope="col">Type</TableColumn>
+        <TableColumn scope="col" className="hidden lg:table-cell">
+          Unit
+        </TableColumn>
+        <TableColumn scope="col">Price ($)</TableColumn>
+        <TableColumn scope="col" className="hidden xl:table-cell">
+          Yield
+        </TableColumn>
+        <TableColumn scope="col">On Hand</TableColumn>
+        <TableColumn scope="col" className="hidden xl:table-cell">
+          Status
+        </TableColumn>
+        <TableColumn scope="col" className="hidden xl:table-cell">
+          Cost / BdFt ($)
+        </TableColumn>
+        <TableColumn scope="col" className="w-[140px] text-right">
+          Actions
+        </TableColumn>
+      </TableHeader>
+
+      <TableBody emptyContent="No materials found.">
+        {materials.map((material) => {
+          const categoryName = categoryLookup.get(material.material_types?.category_id) ?? "—";
+          const quantity = Number(material.quantity_on_hand ?? 0);
+
+          let statusColor: "danger" | "warning" | "success" = "success";
+          let statusLabel = "In Stock";
+          if (quantity === 0) {
+            statusColor = "danger";
+            statusLabel = "Out of Stock";
+          } else if (quantity < 5) {
+            statusColor = "warning";
+            statusLabel = "Reorder Soon";
+          }
+
+          return (
+            <TableRow key={material.id}>
+              <TableCell className="whitespace-nowrap font-medium">
+                {material.material_name}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-default-500">
+                {categoryName || "—"}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-default-500">
+                {material.material_types?.type_name ?? "—"}
+              </TableCell>
+              <TableCell className="hidden lg:table-cell whitespace-nowrap text-default-500">
+                {material.unit_type ?? "—"}
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                ${Number(material.unit_price ?? 0).toFixed(2)}
+              </TableCell>
+              <TableCell className="hidden xl:table-cell whitespace-nowrap">
+                {material.yield_per_unit ?? "—"}
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                {material.quantity_on_hand ?? "—"}
+              </TableCell>
+              <TableCell className="hidden xl:table-cell whitespace-nowrap">
+                <Chip color={statusColor} variant="flat" size="sm">
+                  {statusLabel}
+                </Chip>
+              </TableCell>
+              <TableCell className="hidden xl:table-cell whitespace-nowrap">
+                ${Number(material.cost_per_bdft ?? 0).toFixed(2)}
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    color="secondary"
+                    variant="flat"
+                    className="min-h-8"
+                    onPress={() => onEdit(material)}
+                    aria-label={`Edit ${material.material_name}`}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    color="danger"
+                    variant="flat"
+                    className="min-h-8"
+                    onPress={() => onDelete(material.id)}
+                    aria-label={`Delete ${material.material_name}`}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
 };

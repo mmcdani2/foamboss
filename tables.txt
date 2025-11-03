@@ -1,0 +1,366 @@
+[
+  {
+    "table_name": "businesses",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "constraint_type": "PRIMARY KEY"
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "business_name",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "owner_name",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "location_city",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "location_state",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "location_country",
+    "data_type": "text",
+    "column_default": "'United States'::text",
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "phone_number",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "email",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": "UNIQUE"
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "num_employees",
+    "data_type": "integer",
+    "column_default": "1",
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "constraint_type": null
+  },
+  {
+    "table_name": "businesses",
+    "column_name": "owner_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "FOREIGN KEY"
+  },
+  {
+    "table_name": "material_categories",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "constraint_type": "PRIMARY KEY"
+  },
+  {
+    "table_name": "material_categories",
+    "column_name": "business_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "FOREIGN KEY"
+  },
+  {
+    "table_name": "material_categories",
+    "column_name": "category_name",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_categories",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_categories",
+    "column_name": "is_system",
+    "data_type": "boolean",
+    "column_default": "false",
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_categories",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "constraint_type": "PRIMARY KEY"
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "material_name",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "unit_price",
+    "data_type": "numeric",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "unit_type",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "yield_per_unit",
+    "data_type": "numeric",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "notes",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "quantity_on_hand",
+    "data_type": "numeric",
+    "column_default": "0",
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "reorder_level",
+    "data_type": "numeric",
+    "column_default": "0",
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "cost_per_bdft",
+    "data_type": "numeric",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_pricing_yields",
+    "column_name": "material_type_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "FOREIGN KEY"
+  },
+  {
+    "table_name": "material_types",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "constraint_type": "PRIMARY KEY"
+  },
+  {
+    "table_name": "material_types",
+    "column_name": "business_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "FOREIGN KEY"
+  },
+  {
+    "table_name": "material_types",
+    "column_name": "category_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "FOREIGN KEY"
+  },
+  {
+    "table_name": "material_types",
+    "column_name": "type_name",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_types",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_types",
+    "column_name": "default_unit",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_types",
+    "column_name": "is_system",
+    "data_type": "boolean",
+    "column_default": "false",
+    "constraint_type": null
+  },
+  {
+    "table_name": "material_types",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "constraint_type": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "PRIMARY KEY"
+  },
+  {
+    "table_name": "users",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "PRIMARY KEY"
+  },
+  {
+    "table_name": "users",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "PRIMARY KEY"
+  },
+  {
+    "table_name": "users",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "PRIMARY KEY"
+  },
+  {
+    "table_name": "users",
+    "column_name": "business_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "constraint_type": "FOREIGN KEY"
+  },
+  {
+    "table_name": "users",
+    "column_name": "first_name",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "last_name",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "email",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": "UNIQUE"
+  },
+  {
+    "table_name": "users",
+    "column_name": "phone_number",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "role",
+    "data_type": "text",
+    "column_default": "'admin'::text",
+    "constraint_type": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "title",
+    "data_type": "text",
+    "column_default": null,
+    "constraint_type": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "onboarding_complete",
+    "data_type": "boolean",
+    "column_default": "false",
+    "constraint_type": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "constraint_type": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "constraint_type": null
+  }
+]

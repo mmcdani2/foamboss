@@ -1,0 +1,9 @@
+export async function fetchCategories({ supabase, businessId }: ApiContext) {
+  return await supabase
+    .from("material_categories")
+    .select(
+      "id, business_id, category_name, description, is_system, created_at"
+    )
+    .or(`business_id.eq.${businessId},is_system.eq.true`)
+    .order("category_name", { ascending: true });
+}

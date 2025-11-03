@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { useSupabase } from "@/core/providers/SupabaseProvider";
 
 /**
@@ -26,15 +26,14 @@ export function useBusinessContext() {
 
         setUser(userData.user);
 
-        // Get business_id from the users table
-        const { data: profile, error: profileError } = await supabase
-          .from("users")
-          .select("business_id")
-          .eq("id", userData.user.id)
+        const { data: business, error: businessError } = await supabase
+          .from("businesses")
+          .select("id")
+          .eq("owner_id", userData.user.id)
           .single();
 
-        if (profileError) throw profileError;
-        setBusinessId(profile?.business_id ?? null);
+        if (businessError) throw businessError;
+        setBusinessId(business?.id ?? null);
       } catch (err) {
         console.error("useBusinessContext error:", err);
         setBusinessId(null);
