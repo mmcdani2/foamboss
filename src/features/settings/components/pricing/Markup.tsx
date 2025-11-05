@@ -159,18 +159,43 @@ export default function Markup() {
                   size="sm"
                   color="secondary"
                   variant="flat"
-                  onClick={() => updateProfile(profile.id, profile)}
+                  onClick={async () => {
+                    try {
+                      await updateProfile(profile.id, { ...profile })
+                      toast.success("Profile saved successfully")
+                      // Give Supabase a short moment to persist before refetching
+                      setTimeout(async () => {
+                        const refreshed = await getProfiles(businessId)
+                        setProfiles(refreshed)
+                      }, 200)
+                    } catch (err: any) {
+                      console.error(err)
+                      toast.error("Error saving profile")
+                    }
+                  }}
                 >
                   Save
                 </Button>
+
                 <Button
                   size="sm"
                   color="danger"
                   variant="flat"
-                  onClick={() => removeProfile(profile.id)}
+                  onClick={async () => {
+                    try {
+                      await removeProfile(profile.id)
+                      toast.success("Profile deleted successfully")
+                      const refreshed = await getProfiles(businessId)
+                      setProfiles(refreshed)
+                    } catch (err: any) {
+                      console.error(err)
+                      toast.error("Error deleting profile")
+                    }
+                  }}
                 >
                   Delete
                 </Button>
+
               </div>
             </Card>
           ))

@@ -221,15 +221,39 @@ export default function Production() {
                   size="sm"
                   color="secondary"
                   variant="flat"
-                  onClick={() => updateRate(r.id, r)}
+                  onClick={async () => {
+                    try {
+                      await updateRate(r.id, { ...r })
+                      toast.success("Production rate saved successfully")
+                      // small delay before refetch to ensure Supabase persistence
+                      setTimeout(async () => {
+                        const refreshed = await getRates(businessId)
+                        setRates(refreshed)
+                      }, 200)
+                    } catch (err: any) {
+                      console.error(err)
+                      toast.error("Error saving production rate")
+                    }
+                  }}
                 >
                   Save
                 </Button>
+
                 <Button
                   size="sm"
                   color="danger"
                   variant="flat"
-                  onClick={() => removeRate(r.id)}
+                  onClick={async () => {
+                    try {
+                      await removeRate(r.id)
+                      toast.success("Production rate deleted successfully")
+                      const refreshed = await getRates(businessId)
+                      setRates(refreshed)
+                    } catch (err: any) {
+                      console.error(err)
+                      toast.error("Error deleting production rate")
+                    }
+                  }}
                 >
                   Delete
                 </Button>

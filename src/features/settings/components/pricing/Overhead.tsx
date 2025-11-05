@@ -182,18 +182,43 @@ export default function Overhead() {
                   size="sm"
                   color="secondary"
                   variant="flat"
-                  onClick={() => updateOverhead(o.id, o)}
+                  onClick={async () => {
+                    try {
+                      await updateOverhead(o.id, { ...o })
+                      toast.success("Overhead record saved successfully")
+                      // short delay before refetch to ensure Supabase persistence
+                      setTimeout(async () => {
+                        const refreshed = await getOverheads(businessId)
+                        setOverheads(refreshed)
+                      }, 200)
+                    } catch (err: any) {
+                      console.error(err)
+                      toast.error("Error saving overhead record")
+                    }
+                  }}
                 >
                   Save
                 </Button>
+
                 <Button
                   size="sm"
                   color="danger"
                   variant="flat"
-                  onClick={() => removeOverhead(o.id)}
+                  onClick={async () => {
+                    try {
+                      await removeOverhead(o.id)
+                      toast.success("Overhead record deleted successfully")
+                      const refreshed = await getOverheads(businessId)
+                      setOverheads(refreshed)
+                    } catch (err: any) {
+                      console.error(err)
+                      toast.error("Error deleting overhead record")
+                    }
+                  }}
                 >
                   Delete
                 </Button>
+
               </div>
             </Card>
           ))

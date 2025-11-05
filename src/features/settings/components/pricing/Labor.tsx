@@ -1,16 +1,45 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Button, Input, Card, CardHeader, CardBody, Spacer } from "@heroui/react"
-import { PlusCircle } from "lucide-react"
+import {
+  Button,
+  Input,
+  Select,
+  SelectItem,
+  Table,
+  TableHeader,
+  TableColumn,
+  TableBody,
+  TableRow,
+  TableCell,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+  Card,
+  CardHeader,
+  CardBody,
+} from "@heroui/react"
+import { PlusCircle, Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { useLaborProfiles } from "./hooks/useLaborProfiles"
 import { useBusinessId } from "@/hooks/useBusinessId"
+import { formatPayValue } from "./utils/formatters"
+
 
 export default function Labor() {
   const [profiles, setProfiles] = useState<any[]>([])
+  const [newProfile, setNewProfile] = useState({
+    role_name: "",
+    pay_type: "hourly",
+    pay_value: 0,
+    unit: "$/hr",
+  })
   const { getProfiles, addProfile, updateProfile, removeProfile } = useLaborProfiles()
   const { businessId, loading } = useBusinessId()
+  const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -26,27 +55,49 @@ export default function Labor() {
     fetchData()
   }, [businessId, loading])
 
-  const handleAddProfile = async () => {
+  const handleAddProfile = async (onClose: () => void) => {
     if (!businessId) {
       toast.error("Business context not found")
       return
     }
 
     try {
-      const newProfile = {
-        business_id: businessId,
-        role_name: "New Role",
-        pay_type: "hourly",
-        pay_value: 0,
-        unit: "$/hr",
-        default_profile: false,
-      }
-      await addProfile(newProfile)
-      toast.success("Profile added")
-      setProfiles(await getProfiles(businessId))
+      await addProfile({ ...newProfile, business_id: businessId })
+      toast.success("Profile added successfully")
+      const updated = await getProfiles(businessId)
+      setProfiles(updated)
+      setNewProfile({ role_name: "", pay_type: "hourly", pay_value: 0, unit: "$/hr" })
+      onClose()
     } catch (err: any) {
-      toast.error("Error adding profile")
       console.error(err)
+      toast.error("Error adding profile")
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await removeProfile(id)
+      toast.success("Profile deleted successfully")
+      if (!businessId) return
+      const refreshed = await getProfiles(businessId)
+
+      setProfiles(refreshed)
+    } catch (err: any) {
+      console.error(err)
+      toast.error("Error deleting profile")
+    }
+  }
+
+  const handleSave = async (profile: any) => {
+    try {
+      await updateProfile(profile.id, profile)
+      toast.success("Profile updated successfully")
+      if (!businessId) return
+      const refreshed = await getProfiles(businessId)
+      setProfiles(refreshed)
+    } catch (err: any) {
+      console.error(err)
+      toast.error("Error saving profile")
     }
   }
 
@@ -57,105 +108,115 @@ export default function Labor() {
     <Card className="p-4">
       <CardHeader className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-semibold">Labor Pay Profiles</h3>
-        <Button
-          size="sm"
-          color="primary"
-          variant="flat"
-          onClick={handleAddProfile}
-          startContent={<PlusCircle size={16} />}
-        >
+        <Button color="primary" onPress={onOpen} startContent={<PlusCircle size={16} />}>
           Add Profile
         </Button>
       </CardHeader>
 
-      <CardBody className="space-y-4">
-        {profiles.length === 0 ? (
-          <p className="text-sm text-default-500">
-            No profiles found. Add your first labor pay profile.
-          </p>
-        ) : (
-          profiles.map((profile) => (
-            <Card key={profile.id} className="p-4 bg-content2 shadow-sm">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <CardBody>
+        <Table aria-label="Labor Profiles Table" shadow="none">
+          <TableHeader>
+            <TableColumn>Role</TableColumn>
+            <TableColumn>Pay Type</TableColumn>
+            <TableColumn>Value</TableColumn>
+            <TableColumn>Unit</TableColumn>
+            <TableColumn align="end">Actions</TableColumn>
+          </TableHeader>
+          <TableBody emptyContent="No labor profiles yet.">
+            {profiles.map((p) => (
+              <TableRow key={p.id}>
+                <TableCell>{p.role_name}</TableCell>
+                <TableCell>{p.pay_type}</TableCell>
+                <TableCell>{formatPayValue(p.pay_value, p.pay_type)}</TableCell>
+                <TableCell>{p.unit}</TableCell>
+                <TableCell className="flex justify-end gap-2">
+                  <Button
+                    isIconOnly
+                    variant="light"
+                    color="secondary"
+                    onClick={() => handleSave(p)}
+                  >
+                    <Pencil size={16} />
+                  </Button>
+                  <Button
+                    isIconOnly
+                    variant="light"
+                    color="danger"
+                    onClick={() => handleDelete(p.id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardBody>
+
+      {/* Add Profile Modal */}
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>Add New Profile</ModalHeader>
+              <ModalBody className="space-y-3">
                 <Input
                   label="Role"
-                  value={profile.role_name}
+                  value={newProfile.role_name}
                   onChange={(e) =>
-                    setProfiles((prev) =>
-                      prev.map((p) =>
-                        p.id === profile.id
-                          ? { ...p, role_name: e.target.value }
-                          : p
-                      )
-                    )
+                    setNewProfile({ ...newProfile, role_name: e.target.value })
                   }
                 />
-                <Input
+
+                <Select
                   label="Pay Type"
-                  value={profile.pay_type}
-                  onChange={(e) =>
-                    setProfiles((prev) =>
-                      prev.map((p) =>
-                        p.id === profile.id
-                          ? { ...p, pay_type: e.target.value }
-                          : p
-                      )
-                    )
-                  }
-                />
+                  selectedKeys={[newProfile.pay_type]}
+                  onSelectionChange={(keys) => {
+                    const val = Array.from(keys)[0] as string
+                    setNewProfile({ ...newProfile, pay_type: val })
+                  }}
+                >
+                  <SelectItem key="hourly">Hourly</SelectItem>
+                  <SelectItem key="board_foot">Board Foot</SelectItem>
+                  <SelectItem key="job_based">Job-Based</SelectItem>
+                </Select>
+
                 <Input
-                  label="Value"
+                  label="Pay Value"
                   type="number"
-                  value={profile.pay_value}
+                  value={String(newProfile.pay_value)}
                   onChange={(e) =>
-                    setProfiles((prev) =>
-                      prev.map((p) =>
-                        p.id === profile.id
-                          ? { ...p, pay_value: parseFloat(e.target.value) }
-                          : p
-                      )
-                    )
+                    setNewProfile({
+                      ...newProfile,
+                      pay_value: parseFloat(e.target.value) || 0,
+                    })
                   }
                 />
+
                 <Input
                   label="Unit"
-                  value={profile.unit || ""}
-                  onChange={(e) =>
-                    setProfiles((prev) =>
-                      prev.map((p) =>
-                        p.id === profile.id
-                          ? { ...p, unit: e.target.value }
-                          : p
-                      )
-                    )
+                  value={
+                    newProfile.pay_type === "hourly"
+                      ? "$/hour"
+                      : newProfile.pay_type === "board_foot"
+                        ? "$/BF"
+                        : "% of Net"
                   }
+                  isReadOnly
                 />
-              </div>
-
-              <Spacer y={2} />
-
-              <div className="flex justify-end gap-2 mt-3 md:mt-0">
-                <Button
-                  size="sm"
-                  color="secondary"
-                  variant="flat"
-                  onClick={() => updateProfile(profile.id, profile)}
-                >
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="light" onPress={onClose}>
+                  Cancel
+                </Button>
+                <Button color="primary" onClick={() => handleAddProfile(onClose)}>
                   Save
                 </Button>
-                <Button
-                  size="sm"
-                  color="danger"
-                  variant="flat"
-                  onClick={() => removeProfile(profile.id)}
-                >
-                  Delete
-                </Button>
-              </div>
-            </Card>
-          ))
-        )}
-      </CardBody>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </Card>
   )
 }

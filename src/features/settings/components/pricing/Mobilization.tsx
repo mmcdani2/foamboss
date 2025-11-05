@@ -199,18 +199,43 @@ export default function Mobilization() {
                   size="sm"
                   color="secondary"
                   variant="flat"
-                  onClick={() => updateSetting(s.id, s)}
+                  onClick={async () => {
+                    try {
+                      await updateSetting(s.id, { ...s })
+                      toast.success("Mobilization setting saved successfully")
+                      // brief delay before re-fetch
+                      setTimeout(async () => {
+                        const refreshed = await getSettings(businessId)
+                        setSettings(refreshed)
+                      }, 200)
+                    } catch (err: any) {
+                      console.error(err)
+                      toast.error("Error saving mobilization setting")
+                    }
+                  }}
                 >
                   Save
                 </Button>
+
                 <Button
                   size="sm"
                   color="danger"
                   variant="flat"
-                  onClick={() => removeSetting(s.id)}
+                  onClick={async () => {
+                    try {
+                      await removeSetting(s.id)
+                      toast.success("Mobilization setting deleted successfully")
+                      const refreshed = await getSettings(businessId)
+                      setSettings(refreshed)
+                    } catch (err: any) {
+                      console.error(err)
+                      toast.error("Error deleting mobilization setting")
+                    }
+                  }}
                 >
                   Delete
                 </Button>
+
               </div>
             </Card>
           ))

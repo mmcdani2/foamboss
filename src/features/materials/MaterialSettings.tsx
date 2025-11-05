@@ -5,7 +5,6 @@ import {
   CardHeader,
   CardBody,
   Button,
-  Spinner,
   Skeleton,
 } from "@heroui/react";
 import { useMemo, useState } from "react";
@@ -404,7 +403,7 @@ const MaterialMobileList = ({ materials, categories, onEdit, onDelete }: MobileL
               <div>
                 <dt className="text-default-500">Material Type</dt>
                 <dd className="font-medium text-foreground">
-                  {material.material_types?.type_name ?? "—"}
+                  {material.material_types?.type_name ?? "ï¿½"}
                 </dd>
               </div>
               <div className="text-right">
@@ -416,13 +415,13 @@ const MaterialMobileList = ({ materials, categories, onEdit, onDelete }: MobileL
               <div>
                 <dt className="text-default-500">Yield</dt>
                 <dd className="font-medium text-foreground">
-                  {material.yield_per_unit ?? "—"}
+                  {material.yield_per_unit ?? "ï¿½"}
                 </dd>
               </div>
               <div className="text-right">
                 <dt className="text-default-500">On-hand</dt>
                 <dd className="font-medium text-foreground">
-                  {material.quantity_on_hand ?? "—"}
+                  {material.quantity_on_hand ?? "ï¿½"}
                 </dd>
               </div>
             </dl>

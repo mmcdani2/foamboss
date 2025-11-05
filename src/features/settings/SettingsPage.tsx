@@ -358,12 +358,13 @@ export default function SettingsPage() {
             {activeTab === "integrations" && <IntegrationSettings />}
           </div>
 
-          {/* --- Save Button --- */}
+          {/* --- Save Button --- 
           <div className="flex justify-end mt-6">
             <Button color="secondary" onPress={handleSave}>
               Save All Settings
             </Button>
           </div>
+          */}
         </CardBody>
       </Card>
     </div>
