@@ -11,7 +11,7 @@ import { useCompanySettings } from "@/state/useCompanySettings";
 import { usePricingSettings } from "@/state/usePricingSettings";
 import { useUserSettings } from "@/state/useUserSettings";
 import CompanySettings from "./components/CompanySettings";
-import PricingSettings from "./components/PricingSettings";
+import PricingSettings from "./components/pricing/PricingSettings";
 import TemplateSettings from "./components/TemplateSettings";
 import UserSettings from "./components/UserSettings";
 import IntegrationSettings from "./components/IntegrationSettings";
